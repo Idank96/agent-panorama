@@ -1,0 +1,65 @@
+{% set start, end = report.time_range %}
+# Agent Activity Report
+
+_Generated {{ report.generated_at | fmt_time }}_
+
+## Summary
+
+| Metric | Value |
+| --- | --- |
+| Time range | {{ start | fmt_time }} → {{ end | fmt_time }} |
+| Total agent runs | {{ report.total_runs | fmt_int }} |
+| Total actions taken | {{ report.total_actions | fmt_int }} |
+| Total tokens | {{ report.total_tokens | fmt_int }} |
+
+## Agents
+
+{% for run in report.runs %}
+### {{ loop.index }}. {{ run.name }}
+
+- **Outcome:** {{ run.outcome.value }}
+- **Asked to do:** {{ run.input_text or "—" }}
+- **Result:** {{ run.output_text or "—" }}
+- **Actions taken:** {{ run.tool_calls | length }} · **Model calls:** {{ run.llm_calls | length }} · **Tokens:** {{ run.total_tokens | fmt_int }}
+- **Confidence signal:** {% if run.retry_count > 0 %}{{ run.retry_count }} retr{{ "y" if run.retry_count == 1 else "ies" }}{% else %}no retries{% endif %}{% if run.fallback_used %}, used a fallback{% endif %}.
+
+{% if summaries[run.run_id] %}
+**What it decided / did:**
+
+{% for line in summaries[run.run_id] %}
+- {{ line }}
+{% endfor %}
+{% else %}
+_No tool actions recorded._
+{% endif %}
+
+{% if run.anomalies %}
+**Notes:**
+
+{% for note in run.anomalies %}
+- ⚠️ {{ note }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+## Decision Log
+
+{% if report.decision_log %}
+| Timestamp | Agent | Action | Parameters | Outcome |
+| --- | --- | --- | --- | --- |
+{% for entry in report.decision_log %}
+| {{ entry.timestamp | fmt_time }} | {{ entry.agent_name }} | {{ entry.action }} | {{ entry.parameters }} | {{ entry.outcome }} |
+{% endfor %}
+{% else %}
+_No consequential actions recorded._
+{% endif %}
+
+## Anomalies
+
+{% if report.all_anomalies %}
+{% for agent_name, note in report.all_anomalies %}
+- **{{ agent_name }}:** {{ note }}
+{% endfor %}
+{% else %}
+_Nothing unusual detected._
+{% endif %}

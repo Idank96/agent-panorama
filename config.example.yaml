@@ -1,0 +1,27 @@
+# agent-panorama configuration (all sections optional).
+#
+# Pass with:  agent-panorama generate --input traces.json --output ./report --config config.yaml
+
+# Map raw tool names to readable descriptions used in the report.
+tool_descriptions:
+  web_search: "Searched the web"
+  get_weather: "Looked up the weather"
+  send_email: "Sent an email"
+  human_handoff: "Handed the task off to a person"
+
+# Tool names whose calls are considered "consequential" (side effects) and
+# therefore listed in the Decision Log. If omitted, every tool call is listed.
+consequential_tools:
+  - send_email
+  - human_handoff
+
+# Tool names that signal a human escalation (sets run outcome to "escalated").
+escalation_tools:
+  - human_handoff
+  - handoff_to_agent
+
+# Thresholds for the Anomalies section.
+anomaly_thresholds:
+  max_retries: 2          # more than this many retries is flagged
+  max_latency_seconds: 30 # runs slower than this are flagged
+  max_tool_calls: 15      # runs with more tool calls than this are flagged

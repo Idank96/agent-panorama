@@ -1,0 +1,134 @@
+<p align="center">
+  <img src="assets/logo.png" alt="agent-panorama" width="320">
+</p>
+
+<h1 align="center">agent-panorama</h1>
+
+<p align="center">
+  <a href="https://github.com/Idank96/agent-panorama/actions/workflows/ci.yml"><img src="https://github.com/Idank96/agent-panorama/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+</p>
+
+Turn raw LLM agent traces into a **human-readable Agent Activity Report** that a
+non-engineer can actually read. Point it at a Langfuse (or LangSmith) trace
+export and get clean Markdown + a self-contained HTML report that explains, in
+business language, what your agents did, what they decided, and anything that
+looks off.
+
+## Why
+
+Traces are great for engineers and terrible for everyone else. `agent-panorama`
+translates tool calls, retries, token usage, and errors into plain English. It
+also pulls the real user request and final answer out of LangGraph/LangChain
+`messages` payloads, so the report reads like a story, not a JSON dump:
+
+- `get_weather({"city": "Paris"})` → **"Looked up the weather"**
+- 3 failed model calls → **"High retry count: 3 failed attempts before completing."**
+- `human_handoff(...)` → run outcome **human-escalated**
+
+> Cost/USD estimation is intentionally out of scope for now — the report reports
+> token usage, not dollars.
+
+## Install
+
+```bash
+pip install agent-panorama
+# or, for local development:
+uv pip install -e ".[dev]"
+```
+
+Requires Python 3.10+. Dependencies are intentionally minimal: `click`,
+`jinja2`, `pyyaml`.
+
+## CLI usage
+
+```bash
+agent-panorama generate --input traces.json --output ./report --format html
+```
+
+Options:
+
+| Option | Description |
+| --- | --- |
+| `--input` | Path to the Langfuse/LangSmith JSON export (required). |
+| `--output` | Output directory (default `./report`). |
+| `--format` | `md`, `html`, or `both` (default `both`). |
+| `--input-type` | `langfuse` or `langsmith` (default `langfuse`). |
+| `--config` | Optional YAML config (tool naming, thresholds). |
+
+Try it on the bundled example:
+
+```bash
+agent-panorama generate --input examples/langfuse_traces.json --output ./report
+```
+
+## Library usage
+
+```python
+from agent_panorama import generate_report
+
+report = generate_report(
+    "traces.json",
+    output_dir="./report",
+    formats=["md", "html"],
+    input_type="langfuse",
+    config="config.yaml",  # optional
+)
+
+print(report.total_runs, report.total_tokens)
+```
+
+`generate_report` returns the in-memory `Report`, so you can also inspect runs,
+the decision log, and anomalies programmatically without touching disk (use
+`build_report_from_file` if you want the report without writing files).
+
+## What's in a report
+
+- **Summary** — time range, total runs, total actions, total tokens.
+- **Per-agent section** — what it was asked to do, what it decided/did (tool calls
+  in plain English), final outcome, and a confidence signal (retries / fallback).
+- **Decision log** — a sortable table of every consequential action: timestamp,
+  agent, action, parameters summarized in plain English, outcome.
+- **Anomalies** — high retry counts, slow runs, high activity, errors, fallbacks.
+
+## Configuration
+
+All configuration is optional. See [`config.example.yaml`](config.example.yaml)
+for the full set. Highlights:
+
+```yaml
+tool_descriptions:
+  get_weather: "Looked up the weather"
+
+consequential_tools: [send_email, human_handoff]
+escalation_tools: [human_handoff, handoff_to_agent]
+
+anomaly_thresholds:
+  max_retries: 2
+  max_latency_seconds: 30
+  max_tool_calls: 15
+```
+
+## Supported inputs
+
+- **Langfuse** trace exports — a single trace dict, the single-trace
+  `{"trace": {...}, "observations": [...]}` shape, a list of traces, or the
+  `{"data": [...]}` list-API shape. Tool calls are read from `TOOL`
+  observations (falling back to tool spans), and from `toolCalls` / OpenAI-style
+  `tool_calls` declared on generations.
+- **LangSmith** run exports — a flat list (or `{"runs": [...]}`) of run nodes;
+  each root run is flattened into one agent run.
+
+Token usage is read from the trace (`inputUsage`/`outputUsage` or
+`usage`/`usage_metadata`). Dollar-cost estimation is intentionally out of scope.
+
+## Development
+
+```bash
+uv pip install -e ".[dev]"
+python tests/run_all_tests.py     # run the full suite
+ruff check . && ruff format --check .
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).

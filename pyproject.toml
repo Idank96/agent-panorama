@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agent-panorama"
+version = "0.1.0"
+description = "Turn Langfuse/LangSmith agent traces into human-readable Agent Activity Reports (Markdown + HTML)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "agent-panorama contributors" }]
+keywords = ["langfuse", "langsmith", "llm", "agents", "observability", "reporting"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "click>=8.1",
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Idank96/agent-panorama"
+Repository = "https://github.com/Idank96/agent-panorama"
+Issues = "https://github.com/Idank96/agent-panorama/issues"
+
+[project.scripts]
+agent-panorama = "agent_panorama.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent_panorama"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files manipulate sys.path before importing, so imports are intentionally
+# ordered and not at the top of the file.
+"tests/*" = ["E402", "I001"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true

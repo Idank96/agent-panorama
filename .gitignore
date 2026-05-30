@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Generated reports
+report.md
+report.html
+/report/
+
+# Real trace data dropped in for local validation (keep the instructions file)
+/traces/*
+!/traces/PUT_YOUR_TRACE_HERE.md
+
+# Never commit raw trace exports anywhere in the tree (may contain private data)
+trace-*.json
+*trace_export*.json
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/

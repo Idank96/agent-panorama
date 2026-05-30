@@ -1,0 +1,56 @@
+{
+  "runs": [
+    {
+      "id": "00000000-0000-0000-0000-0000000000a0",
+      "name": "recipe-assistant",
+      "run_type": "chain",
+      "parent_run_id": null,
+      "start_time": "2026-05-21T14:00:00.000Z",
+      "end_time": "2026-05-21T14:00:08.000Z",
+      "inputs": {"messages": [{"role": "user", "content": "Find a quick pasta recipe and email it to me."}]},
+      "outputs": {"content": "Found a 20-minute pasta recipe and emailed it to you."}
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000000a1",
+      "name": "ChatOpenAI",
+      "run_type": "llm",
+      "parent_run_id": "00000000-0000-0000-0000-0000000000a0",
+      "start_time": "2026-05-21T14:00:00.500Z",
+      "end_time": "2026-05-21T14:00:02.500Z",
+      "extra": {"metadata": {"ls_model_name": "gpt-4o"}},
+      "usage_metadata": {"input_tokens": 780, "output_tokens": 110},
+      "outputs": {}
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000000a2",
+      "name": "web_search",
+      "run_type": "tool",
+      "parent_run_id": "00000000-0000-0000-0000-0000000000a0",
+      "start_time": "2026-05-21T14:00:02.600Z",
+      "end_time": "2026-05-21T14:00:03.400Z",
+      "inputs": {"query": "quick pasta recipe under 20 minutes"},
+      "outputs": {"results": 5}
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000000a3",
+      "name": "send_email",
+      "run_type": "tool",
+      "parent_run_id": "00000000-0000-0000-0000-0000000000a0",
+      "start_time": "2026-05-21T14:00:03.500Z",
+      "end_time": "2026-05-21T14:00:04.100Z",
+      "inputs": {"to": "user", "subject": "Your pasta recipe"},
+      "outputs": {"message_id": "msg-7781"}
+    },
+    {
+      "id": "00000000-0000-0000-0000-0000000000a4",
+      "name": "ChatOpenAI",
+      "run_type": "llm",
+      "parent_run_id": "00000000-0000-0000-0000-0000000000a0",
+      "start_time": "2026-05-21T14:00:04.200Z",
+      "end_time": "2026-05-21T14:00:06.000Z",
+      "extra": {"metadata": {"ls_model_name": "gpt-4o"}},
+      "usage_metadata": {"input_tokens": 950, "output_tokens": 70},
+      "outputs": {"content": "Found a 20-minute pasta recipe and emailed it to you."}
+    }
+  ]
+}

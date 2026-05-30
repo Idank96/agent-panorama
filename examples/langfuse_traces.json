@@ -1,0 +1,143 @@
+[
+  {
+    "id": "trace-001",
+    "name": "research-assistant",
+    "timestamp": "2026-05-20T09:15:00.000Z",
+    "input": {"question": "What are the top AI papers this week?"},
+    "output": {"content": "Here are three notable AI papers from this week, each with a short summary."},
+    "observations": [
+      {
+        "id": "obs-001-a",
+        "type": "GENERATION",
+        "name": "plan-response",
+        "startTime": "2026-05-20T09:15:01.000Z",
+        "endTime": "2026-05-20T09:15:03.500Z",
+        "model": "gpt-4o",
+        "usage": {"input": 800, "output": 120, "unit": "TOKENS"},
+        "level": "DEFAULT",
+        "output": {"tool_calls": [{"function": {"name": "web_search", "arguments": "{\"query\": \"top AI papers this week\"}"}}]}
+      },
+      {
+        "id": "obs-001-b",
+        "type": "SPAN",
+        "name": "web_search",
+        "startTime": "2026-05-20T09:15:03.600Z",
+        "endTime": "2026-05-20T09:15:04.200Z",
+        "input": {"query": "top AI papers this week"},
+        "output": {"results": 3},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "obs-001-c",
+        "type": "SPAN",
+        "name": "summarize_text",
+        "startTime": "2026-05-20T09:15:04.300Z",
+        "endTime": "2026-05-20T09:15:04.900Z",
+        "input": {"documents": 3, "max_words": 80},
+        "output": {"summary": "three short summaries"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "obs-001-d",
+        "type": "GENERATION",
+        "name": "final-answer",
+        "startTime": "2026-05-20T09:15:05.000Z",
+        "endTime": "2026-05-20T09:15:06.400Z",
+        "model": "gpt-4o",
+        "usage": {"input": 1000, "output": 100, "unit": "TOKENS"},
+        "level": "DEFAULT",
+        "output": {"content": "Here are three notable AI papers from this week."}
+      }
+    ]
+  },
+  {
+    "id": "trace-002",
+    "name": "scheduling-assistant",
+    "timestamp": "2026-05-20T10:02:00.000Z",
+    "input": {"question": "Book a meeting with the design team next week."},
+    "output": {"content": "This request has been handed off to a human scheduler."},
+    "observations": [
+      {
+        "id": "obs-002-a",
+        "type": "GENERATION",
+        "name": "assess-request",
+        "startTime": "2026-05-20T10:02:01.000Z",
+        "endTime": "2026-05-20T10:02:04.000Z",
+        "model": "claude-3-5-sonnet-20241022",
+        "usage": {"input": 1200, "output": 200, "unit": "TOKENS"},
+        "level": "DEFAULT",
+        "output": {"content": "This needs a human to confirm availability."}
+      },
+      {
+        "id": "obs-002-b",
+        "type": "SPAN",
+        "name": "check_calendar",
+        "startTime": "2026-05-20T10:02:04.100Z",
+        "endTime": "2026-05-20T10:02:04.400Z",
+        "input": {"team": "design", "window": "next_week"},
+        "output": {"free_slots": 2},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "obs-002-c",
+        "type": "SPAN",
+        "name": "human_handoff",
+        "startTime": "2026-05-20T10:02:04.500Z",
+        "endTime": "2026-05-20T10:02:04.800Z",
+        "input": {"reason": "needs human confirmation", "queue": "scheduling"},
+        "output": {"ticket_id": "hx-3320"},
+        "level": "DEFAULT"
+      }
+    ]
+  },
+  {
+    "id": "trace-003",
+    "name": "weather-assistant",
+    "timestamp": "2026-05-20T11:30:00.000Z",
+    "input": {"task": "Email me tomorrow's forecast for Paris."},
+    "output": {"content": "Forecast sent after recovering from a provider timeout."},
+    "observations": [
+      {
+        "id": "obs-003-a",
+        "type": "GENERATION",
+        "name": "plan",
+        "startTime": "2026-05-20T11:30:01.000Z",
+        "endTime": "2026-05-20T11:30:02.000Z",
+        "model": "gpt-4o-mini",
+        "usage": {"input": 500, "output": 70, "unit": "TOKENS"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "obs-003-b",
+        "type": "SPAN",
+        "name": "get_weather",
+        "startTime": "2026-05-20T11:30:02.100Z",
+        "endTime": "2026-05-20T11:30:14.100Z",
+        "input": {"city": "Paris", "provider": "primary"},
+        "output": {"error": "provider timeout"},
+        "level": "ERROR",
+        "statusMessage": "Weather provider timed out after 12s"
+      },
+      {
+        "id": "obs-003-c",
+        "type": "SPAN",
+        "name": "get_weather",
+        "startTime": "2026-05-20T11:30:14.200Z",
+        "endTime": "2026-05-20T11:30:15.400Z",
+        "input": {"city": "Paris", "provider": "backup"},
+        "output": {"temp_c": 18, "summary": "partly cloudy"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "obs-003-d",
+        "type": "SPAN",
+        "name": "send_email",
+        "startTime": "2026-05-20T11:30:15.500Z",
+        "endTime": "2026-05-20T11:30:16.000Z",
+        "input": {"to": "user", "subject": "Paris forecast for tomorrow"},
+        "output": {"sent": true},
+        "level": "DEFAULT"
+      }
+    ]
+  }
+]

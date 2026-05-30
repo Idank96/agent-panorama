@@ -1,0 +1,172 @@
+{% set start, end = report.time_range %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Activity Report</title>
+<style>
+  :root {
+    --bg: #f7f8fa; --card: #ffffff; --ink: #1c2430; --muted: #6b7686;
+    --line: #e4e8ee; --accent: #3b5bdb; --ok: #1f9d55; --warn: #b7791f;
+    --fail: #d64545; --chip: #eef1f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 17px; margin: 0 0 8px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .agent {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 20px; margin-bottom: 16px;
+  }
+  .agent-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .meta { color: var(--muted); font-size: 13px; margin: 8px 0 12px; }
+  .meta b { color: var(--ink); font-weight: 600; }
+  ul.actions { margin: 8px 0 0; padding-left: 20px; }
+  ul.actions li { margin: 3px 0; }
+  .notes { margin-top: 12px; padding: 10px 14px; background: #fff8ec; border: 1px solid #f3e2c0; border-radius: 8px; }
+  .notes ul { margin: 6px 0 0; padding-left: 18px; }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; background: var(--chip); color: var(--muted); white-space: nowrap;
+  }
+  .badge.success { background: #e6f6ec; color: var(--ok); }
+  .badge.failure { background: #fbe7e7; color: var(--fail); }
+  .badge.human-escalated { background: #fff2dd; color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: top; }
+  th { background: #f0f2f7; cursor: pointer; user-select: none; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+  th:hover { color: var(--ink); }
+  tr:last-child td { border-bottom: none; }
+  td.outcome-failed { color: var(--fail); }
+  .empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Agent Activity Report</h1>
+  <div class="sub">Generated {{ report.generated_at | fmt_time }}</div>
+
+  <h2>Summary</h2>
+  <div class="sub">{{ start | fmt_time }} &rarr; {{ end | fmt_time }}</div>
+  <div class="cards">
+    <div class="card"><div class="label">Agent runs</div><div class="value">{{ report.total_runs | fmt_int }}</div></div>
+    <div class="card"><div class="label">Actions taken</div><div class="value">{{ report.total_actions | fmt_int }}</div></div>
+    <div class="card"><div class="label">Tokens</div><div class="value">{{ report.total_tokens | fmt_int }}</div></div>
+  </div>
+
+  <h2>Agents</h2>
+  {% for run in report.runs %}
+  <div class="agent">
+    <div class="agent-head">
+      <h3>{{ loop.index }}. {{ run.name }}</h3>
+      <span class="badge {{ run.outcome.value }}">{{ run.outcome.value }}</span>
+    </div>
+    <div class="meta">
+      <div><b>Asked to do:</b> {{ run.input_text or "—" }}</div>
+      <div><b>Result:</b> {{ run.output_text or "—" }}</div>
+      <div>
+        <b>{{ run.tool_calls | length }}</b> actions ·
+        <b>{{ run.llm_calls | length }}</b> model calls ·
+        <b>{{ run.total_tokens | fmt_int }}</b> tokens ·
+        {% if run.retry_count > 0 %}<b>{{ run.retry_count }}</b> retr{{ "y" if run.retry_count == 1 else "ies" }}{% else %}no retries{% endif %}{% if run.fallback_used %}, fallback used{% endif %}
+      </div>
+    </div>
+    {% if summaries[run.run_id] %}
+    <div><b>What it decided / did:</b></div>
+    <ul class="actions">
+      {% for line in summaries[run.run_id] %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty">No tool actions recorded.</div>
+    {% endif %}
+    {% if run.anomalies %}
+    <div class="notes">
+      <b>Notes</b>
+      <ul>
+        {% for note in run.anomalies %}
+        <li>{{ note }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <h2>Decision Log</h2>
+  {% if report.decision_log %}
+  <table id="decision-log">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">Timestamp</th>
+        <th onclick="sortTable(1)">Agent</th>
+        <th onclick="sortTable(2)">Action</th>
+        <th onclick="sortTable(3)">Parameters</th>
+        <th onclick="sortTable(4)">Outcome</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for entry in report.decision_log %}
+      <tr>
+        <td>{{ entry.timestamp | fmt_time }}</td>
+        <td>{{ entry.agent_name }}</td>
+        <td>{{ entry.action }}</td>
+        <td>{{ entry.parameters }}</td>
+        <td class="{{ 'outcome-failed' if entry.outcome.startswith('failed') else '' }}">{{ entry.outcome }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">No consequential actions recorded.</div>
+  {% endif %}
+
+  <h2>Anomalies</h2>
+  {% if report.all_anomalies %}
+  <ul>
+    {% for agent_name, note in report.all_anomalies %}
+    <li><b>{{ agent_name }}:</b> {{ note }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty">Nothing unusual detected.</div>
+  {% endif %}
+</div>
+
+<script>
+  function sortTable(col) {
+    var table = document.getElementById("decision-log");
+    var tbody = table.tBodies[0];
+    var rows = Array.prototype.slice.call(tbody.rows);
+    var asc = table.getAttribute("data-sort-col") == col
+      ? table.getAttribute("data-sort-dir") != "asc" : true;
+    rows.sort(function (a, b) {
+      var x = a.cells[col].innerText.toLowerCase();
+      var y = b.cells[col].innerText.toLowerCase();
+      if (x < y) return asc ? -1 : 1;
+      if (x > y) return asc ? 1 : -1;
+      return 0;
+    });
+    rows.forEach(function (r) { tbody.appendChild(r); });
+    table.setAttribute("data-sort-col", col);
+    table.setAttribute("data-sort-dir", asc ? "asc" : "desc");
+  }
+</script>
+</body>
+</html>
