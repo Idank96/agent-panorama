@@ -121,6 +121,54 @@ anomaly_thresholds:
 Token usage is read from the trace (`inputUsage`/`outputUsage` or
 `usage`/`usage_metadata`). Dollar-cost estimation is intentionally out of scope.
 
+## Roadmap
+
+`agent-panorama` starts as a report generator and is growing into an **oversight
+layer for fleets of agents** — a single pane of glass for everything your agents
+did, decided, and got wrong. More than logs, across more than one agent.
+
+**✅ v0.1 — Read one run clearly _(today)_**
+- Langfuse + LangSmith trace ingestion
+- Plain-language per-agent summaries, decision log, anomalies
+- Markdown + self-contained HTML output; CLI and library API
+
+**🔜 v0.2 — See the whole fleet (the panorama view)**
+- A unified **cross-agent activity feed** — one scannable timeline of what every
+  agent did, in plain English:
+
+  ```text
+  Agent Activity — May 28, 14:30–15:00
+
+  research-assistant    → searched the web, summarized 3 papers            ✓ success
+  scheduling-assistant  → checked the calendar, handed the task to a human ⤴ escalated
+  weather-assistant     → looked up the weather (retried once), emailed it ✓ success
+  billing-agent         → issued 2 refunds, flagged 1 for review           ⚠ anomaly
+  ```
+- Aggregate many traces into one report (by session, time window, or file glob)
+- Per-agent rollups: runs, actions, success / escalation / retry rates
+- Cross-agent decision log spanning every agent in the window
+
+**📈 v0.3 — Trends & regressions**
+- Track rates over time, not just a point-in-time snapshot
+- Flag regressions (escalations or retries spiking vs. a baseline)
+- Period-over-period comparison ("this week vs. last")
+
+**🔌 v0.4 — More sources & deeper detail**
+- OpenTelemetry / OpenInference and raw OpenAI-style logs
+- Optionally fetch full input/output from the Langfuse API to enrich
+  decision-log parameters
+- Pluggable parser interface for custom trace formats
+
+**🎯 The vision — Continuous oversight**
+- A live dashboard: the activity feed above, always-on, filterable by agent /
+  outcome / time
+- Scheduled/continuous reports instead of one-off runs
+- Accountability views a non-engineer can sign off on (what happened, what needs
+  a human)
+- Alerting on anomalies across the fleet
+
+> Have a use case or a trace format you want supported? Open an issue.
+
 ## Development
 
 ```bash
