@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="agent-panorama" width="320">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/logo.png" alt="agent-panorama" width="320">
 </p>
 
 <h1 align="center">agent-panorama</h1>
