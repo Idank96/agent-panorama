@@ -56,6 +56,20 @@ def test_summarize_falls_back_to_plain_text() -> None:
     assert summarize_request("just a string") == "just a string"
 
 
+def test_summarize_outcome_extracts_result_field() -> None:
+    # LangGraph state has no messages; the result lives in a `report` field.
+    assert summarize_outcome({"report": "Daily summary ready."}) == "Daily summary ready."
+
+
+def test_summarize_request_does_not_dump_secrets() -> None:
+    # A state payload with no recognizable ask must not leak embedded secrets.
+    state = {"config": {}, "slack_client": {"token": "xoxb-SECRET-123"}, "channels": []}
+    summary = summarize_request(state)
+    assert "xoxb" not in summary
+    assert "SECRET" not in summary
+    assert summary.startswith("state with fields:")
+
+
 def test_extract_tokens_key_variants() -> None:
     assert extract_tokens({"input": 10, "output": 5}) == (10, 5)
     assert extract_tokens({"promptTokens": 7, "completionTokens": 3}) == (7, 3)

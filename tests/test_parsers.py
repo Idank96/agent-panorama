@@ -19,6 +19,75 @@ def _load(name: str) -> object:
     return json.loads((_bootstrap.EXAMPLES / name).read_text(encoding="utf-8"))
 
 
+def _langgraph_trace() -> dict:
+    """A LangGraph-shaped trace: named graph nodes, no TOOL observations."""
+    return {
+        "id": "lg1",
+        "name": "LangGraph",
+        "timestamp": "2026-05-20T10:00:00Z",
+        "input": "{}",
+        "output": {"report": "All done."},
+        "observations": [
+            {
+                "id": "root",
+                "type": "CHAIN",
+                "name": "LangGraph",
+                "startTime": "2026-05-20T10:00:00Z",
+            },
+            {
+                "id": "n1",
+                "type": "CHAIN",
+                "name": "retrieve_data",
+                "parentObservationId": "root",
+                "startTime": "2026-05-20T10:00:01Z",
+            },
+            {
+                "id": "n2",
+                "type": "CHAIN",
+                "name": "analyze",
+                "parentObservationId": "root",
+                "startTime": "2026-05-20T10:00:02Z",
+            },
+            {
+                "id": "g1",
+                "type": "GENERATION",
+                "name": "ChatModel",
+                "parentObservationId": "n2",
+                "startTime": "2026-05-20T10:00:03Z",
+                "inputUsage": 100,
+                "outputUsage": 20,
+            },
+            {
+                "id": "n3",
+                "type": "CHAIN",
+                "name": "respond",
+                "parentObservationId": "root",
+                "startTime": "2026-05-20T10:00:04Z",
+            },
+        ],
+    }
+
+
+def test_langfuse_graph_nodes_become_steps() -> None:
+    run = parsers.parse(_langgraph_trace(), input_type="langfuse")[0]
+    # No tools, yet the agent's work is narrated as its ordered graph nodes.
+    assert len(run.tool_calls) == 0
+    assert [s.name for s in run.steps] == ["retrieve_data", "analyze", "respond"]
+    analyze = next(s for s in run.steps if s.name == "analyze")
+    assert analyze.model_calls == 1
+    assert analyze.tokens == 120
+    assert run.output_text == "All done."
+
+
+def test_langfuse_tool_runs_expose_steps() -> None:
+    research = next(
+        r
+        for r in parsers.parse(_load("langfuse_traces.json"), input_type="langfuse")
+        if r.name == "research-assistant"
+    )
+    assert len(research.steps) == len(research.tool_calls) >= 1
+
+
 def test_langfuse_batch_parses_all_traces() -> None:
     runs = parsers.parse(_load("langfuse_traces.json"), input_type="langfuse")
     assert len(runs) == 3
@@ -55,6 +124,7 @@ def test_langsmith_run_tree_flattens() -> None:
     run = runs[0]
     assert run.name == "recipe-assistant"
     assert {c.name for c in run.tool_calls} == {"web_search", "send_email"}
+    assert {s.name for s in run.steps} == {"web_search", "send_email"}
     assert run.total_tokens == 780 + 110 + 950 + 70
 
 

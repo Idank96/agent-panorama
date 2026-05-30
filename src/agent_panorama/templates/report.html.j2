@@ -38,8 +38,6 @@
   .meta b { color: var(--ink); font-weight: 600; }
   ul.actions { margin: 8px 0 0; padding-left: 20px; }
   ul.actions li { margin: 3px 0; }
-  .notes { margin-top: 12px; padding: 10px 14px; background: #fff8ec; border: 1px solid #f3e2c0; border-radius: 8px; }
-  .notes ul { margin: 6px 0 0; padding-left: 18px; }
   .badge {
     display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px;
     font-weight: 600; background: var(--chip); color: var(--muted); white-space: nowrap;
@@ -47,12 +45,8 @@
   .badge.success { background: #e6f6ec; color: var(--ok); }
   .badge.failure { background: #fbe7e7; color: var(--fail); }
   .badge.human-escalated { background: #fff2dd; color: var(--warn); }
-  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: top; }
-  th { background: #f0f2f7; cursor: pointer; user-select: none; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
-  th:hover { color: var(--ink); }
-  tr:last-child td { border-bottom: none; }
-  td.outcome-failed { color: var(--fail); }
+  .footer { color: var(--muted); font-size: 13px; margin-top: 12px; }
+  .footer b { color: var(--ink); font-weight: 600; }
   .empty { color: var(--muted); font-style: italic; }
 </style>
 </head>
@@ -60,14 +54,6 @@
 <div class="wrap">
   <h1>Agent Activity Report</h1>
   <div class="sub">Generated {{ report.generated_at | fmt_time }}</div>
-
-  <h2>Summary</h2>
-  <div class="sub">{{ start | fmt_time }} &rarr; {{ end | fmt_time }}</div>
-  <div class="cards">
-    <div class="card"><div class="label">Agent runs</div><div class="value">{{ report.total_runs | fmt_int }}</div></div>
-    <div class="card"><div class="label">Actions taken</div><div class="value">{{ report.total_actions | fmt_int }}</div></div>
-    <div class="card"><div class="label">Tokens</div><div class="value">{{ report.total_tokens | fmt_int }}</div></div>
-  </div>
 
   <h2>Agents</h2>
   {% for run in report.runs %}
@@ -78,95 +64,34 @@
     </div>
     <div class="meta">
       <div><b>Asked to do:</b> {{ run.input_text or "—" }}</div>
-      <div><b>Result:</b> {{ run.output_text or "—" }}</div>
-      <div>
-        <b>{{ run.tool_calls | length }}</b> actions ·
-        <b>{{ run.llm_calls | length }}</b> model calls ·
-        <b>{{ run.total_tokens | fmt_int }}</b> tokens ·
-        {% if run.retry_count > 0 %}<b>{{ run.retry_count }}</b> retr{{ "y" if run.retry_count == 1 else "ies" }}{% else %}no retries{% endif %}{% if run.fallback_used %}, fallback used{% endif %}
-      </div>
+      <div><b>Result:</b> {{ results[run.run_id] or "—" }}</div>
     </div>
-    {% if summaries[run.run_id] %}
-    <div><b>What it decided / did:</b></div>
-    <ul class="actions">
-      {% for line in summaries[run.run_id] %}
+    {% if narratives[run.run_id] %}
+    <div><b>What it did, step by step:</b></div>
+    <ol class="actions">
+      {% for line in narratives[run.run_id] %}
       <li>{{ line }}</li>
       {% endfor %}
-    </ul>
+    </ol>
     {% else %}
-    <div class="empty">No tool actions recorded.</div>
+    <div class="empty">No steps recorded.</div>
     {% endif %}
-    {% if run.anomalies %}
-    <div class="notes">
-      <b>Notes</b>
-      <ul>
-        {% for note in run.anomalies %}
-        <li>{{ note }}</li>
-        {% endfor %}
-      </ul>
+    <div class="footer">
+      <b>Outcome:</b> {{ run.outcome.value }} ·
+      <b>{{ run.action_count | fmt_int }}</b> steps ·
+      <b>{{ run.llm_calls | length }}</b> model calls ·
+      <b>{{ run.total_tokens | fmt_int }}</b> tokens
     </div>
-    {% endif %}
   </div>
   {% endfor %}
 
-  <h2>Decision Log</h2>
-  {% if report.decision_log %}
-  <table id="decision-log">
-    <thead>
-      <tr>
-        <th onclick="sortTable(0)">Timestamp</th>
-        <th onclick="sortTable(1)">Agent</th>
-        <th onclick="sortTable(2)">Action</th>
-        <th onclick="sortTable(3)">Parameters</th>
-        <th onclick="sortTable(4)">Outcome</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for entry in report.decision_log %}
-      <tr>
-        <td>{{ entry.timestamp | fmt_time }}</td>
-        <td>{{ entry.agent_name }}</td>
-        <td>{{ entry.action }}</td>
-        <td>{{ entry.parameters }}</td>
-        <td class="{{ 'outcome-failed' if entry.outcome.startswith('failed') else '' }}">{{ entry.outcome }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="empty">No consequential actions recorded.</div>
-  {% endif %}
-
-  <h2>Anomalies</h2>
-  {% if report.all_anomalies %}
-  <ul>
-    {% for agent_name, note in report.all_anomalies %}
-    <li><b>{{ agent_name }}:</b> {{ note }}</li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <div class="empty">Nothing unusual detected.</div>
-  {% endif %}
+  <h2>Summary</h2>
+  <div class="sub">{{ start | fmt_time }} &rarr; {{ end | fmt_time }}</div>
+  <div class="cards">
+    <div class="card"><div class="label">Agent runs</div><div class="value">{{ report.total_runs | fmt_int }}</div></div>
+    <div class="card"><div class="label">Steps</div><div class="value">{{ report.total_steps | fmt_int }}</div></div>
+    <div class="card"><div class="label">Tokens</div><div class="value">{{ report.total_tokens | fmt_int }}</div></div>
+  </div>
 </div>
-
-<script>
-  function sortTable(col) {
-    var table = document.getElementById("decision-log");
-    var tbody = table.tBodies[0];
-    var rows = Array.prototype.slice.call(tbody.rows);
-    var asc = table.getAttribute("data-sort-col") == col
-      ? table.getAttribute("data-sort-dir") != "asc" : true;
-    rows.sort(function (a, b) {
-      var x = a.cells[col].innerText.toLowerCase();
-      var y = b.cells[col].innerText.toLowerCase();
-      if (x < y) return asc ? -1 : 1;
-      if (x > y) return asc ? 1 : -1;
-      return 0;
-    });
-    rows.forEach(function (r) { tbody.appendChild(r); });
-    table.setAttribute("data-sort-col", col);
-    table.setAttribute("data-sort-dir", asc ? "asc" : "desc");
-  }
-</script>
 </body>
 </html>

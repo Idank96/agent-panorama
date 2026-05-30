@@ -8,8 +8,33 @@ one agent execution; this parser flattens each tree into an
 
 from __future__ import annotations
 
-from ..models import AgentRun, LLMCall, ToolCall
-from .common import extract_tokens, parse_time, summarize_outcome, summarize_request, to_text
+from ..models import AgentRun, LLMCall, Step, ToolCall
+from .common import (
+    extract_tokens,
+    fallback_steps,
+    parse_time,
+    summarize_outcome,
+    summarize_request,
+    to_text,
+)
+
+# Framework plumbing runs that wrap real steps; unwrapped, never shown as a step.
+_NOISE_RUN_NAMES = frozenset(
+    {
+        "chatprompttemplate",
+        "runnablesequence",
+        "runnablelambda",
+        "runnableparallel",
+        "runnableassign",
+        "runnablemap",
+        "runnablewithfallbacks",
+        "runnablecallable",
+        "langgraph",
+        "__start__",
+        "__end__",
+        "channel_write",
+    }
+)
 
 
 def parse(payload: object) -> list[AgentRun]:
@@ -73,7 +98,60 @@ def _parse_root(root: dict, by_parent: dict[str, list[dict]]) -> AgentRun:
     )
     for node in nodes:
         _ingest_run(node, run)
+    run.steps = _build_steps(root, by_parent, run)
     return run
+
+
+def _build_steps(root: dict, by_parent: dict[str, list[dict]], run: AgentRun) -> list[Step]:
+    """Derive the run's ordered narrative from the LangSmith run tree.
+
+    Steps are the top-most meaningful child runs (tools or named graph nodes),
+    unwrapping framework plumbing. Falls back to the run's tool calls, then to a
+    single aggregated model step, when no such runs exist.
+    """
+    step_runs: list[dict] = []
+    _collect_step_runs(by_parent.get(str(root.get("id")), []), by_parent, step_runs)
+    steps = [_run_to_step(node, by_parent) for node in step_runs]
+    steps.sort(key=lambda s: s.start_time.timestamp() if s.start_time else float("inf"))
+    return steps or fallback_steps(run)
+
+
+def _collect_step_runs(
+    nodes: list[dict], by_parent: dict[str, list[dict]], out: list[dict]
+) -> None:
+    """Collect the top-most meaningful runs, unwrapping plumbing in between."""
+    for node in nodes:
+        if _is_step_run(node):
+            out.append(node)
+        elif (node.get("run_type") or "").lower() != "llm":
+            _collect_step_runs(by_parent.get(str(node.get("id")), []), by_parent, out)
+
+
+def _is_step_run(node: dict) -> bool:
+    """Whether a run stands on its own as an agent step."""
+    if (node.get("run_type") or "").lower() not in ("tool", "chain", "agent", "retriever"):
+        return False
+    return (node.get("name") or "").strip().lower() not in _NOISE_RUN_NAMES
+
+
+def _run_to_step(node: dict, by_parent: dict[str, list[dict]]) -> Step:
+    """Build a :class:`Step` from a run, aggregating its subtree activity."""
+    subtree = _descendants(node, by_parent)
+    model_calls = sum(1 for n in subtree if (n.get("run_type") or "").lower() == "llm")
+    tool_calls = sum(1 for n in subtree if (n.get("run_type") or "").lower() == "tool")
+    tokens = sum(sum(_llm_tokens(n)) for n in subtree if (n.get("run_type") or "").lower() == "llm")
+    errored = next((n for n in subtree if n.get("error")), None)
+    return Step(
+        name=str(node.get("name") or "step"),
+        kind="tool" if (node.get("run_type") or "").lower() == "tool" else "node",
+        start_time=parse_time(node.get("start_time")),
+        end_time=parse_time(node.get("end_time")),
+        status="error" if errored else "success",
+        error=to_text(errored.get("error")) if errored else None,
+        model_calls=model_calls,
+        tool_calls=tool_calls,
+        tokens=tokens,
+    )
 
 
 def _ingest_run(node: dict, run: AgentRun) -> None:

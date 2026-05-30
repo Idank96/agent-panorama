@@ -54,6 +54,9 @@ Options:
 | `--format` | `md`, `html`, or `both` (default `both`). |
 | `--input-type` | `langfuse` or `langsmith` (default `langfuse`). |
 | `--config` | Optional YAML config (tool naming, thresholds). |
+| `--detail` | Step narrative detail: `minimal`, `standard` (default), or `richer`. |
+| `--summarize` | Phrase each `minimal` result via a cheap LLM (opt-in, off by default). See below. |
+| `--summarize-model` | LLM id for `--summarize` (default `google_genai:gemini-2.5-flash-lite`). |
 
 Try it on the bundled example:
 
@@ -83,9 +86,10 @@ the decision log, and anomalies programmatically without touching disk (use
 
 ## What's in a report
 
-- **Summary** — time range, total runs, total actions, total tokens.
-- **Per-agent section** — what it was asked to do, what it decided/did (tool calls
-  in plain English), final outcome, and a confidence signal (retries / fallback).
+- **Summary** — time range, total runs, total steps, total tokens.
+- **Per-agent section** — what it was asked to do, what it did step by step (graph
+  nodes / tool calls in plain English, at the chosen `--detail` level), final
+  outcome, and a confidence signal (retries / fallback).
 - **Decision log** — a sortable table of every consequential action: timestamp,
   agent, action, parameters summarized in plain English, outcome.
 - **Anomalies** — high retry counts, slow runs, high activity, errors, fallbacks.
@@ -107,6 +111,75 @@ anomaly_thresholds:
   max_latency_seconds: 30
   max_tool_calls: 15
 ```
+
+## Plain-language result summaries (optional LLM)
+
+By default the report uses **no LLM** — it just reformats trace data. But in
+`--detail minimal`, a long final answer (e.g. a big Markdown table) is condensed
+with a simple heuristic, which keeps the agent's own wording ("Here are all the
+cutting stations in the plant"). If you'd rather get a crisp past-tense action
+line ("**Showed** all the cutting stations in the plant."), enable the opt-in
+`--summarize` flag, which rewrites just the result via a cheap model.
+
+It is intentionally tiny: a ~40-token fixed system prompt, **at most ~250 input
+tokens** (the result is hard-capped at 1,000 characters), and a ~25-token reply
+— roughly **300 tokens total per run**. On a free-tier model this costs nothing;
+on the cheapest paid model it's a fraction of a cent.
+
+### Setup
+
+1. Install a provider extra (pick the one matching your model):
+
+   ```bash
+   pip install "agent-panorama[gemini]"     # Google Gemini (recommended, free tier)
+   pip install "agent-panorama[openai]"     # OpenAI
+   pip install "agent-panorama[anthropic]"  # Anthropic
+   ```
+
+2. Get your own API key from the provider and either `export` it or put it in a
+   `.env` file in the working directory (auto-loaded; real env vars win):
+
+   ```bash
+   export GOOGLE_API_KEY=...      # Gemini
+   # or OPENAI_API_KEY / ANTHROPIC_API_KEY
+   # …or a .env file:  GOOGLE_API_KEY=...
+   ```
+
+3. Run with `--summarize`:
+
+   ```bash
+   agent-panorama generate --input traces.json --output ./report \
+     --detail minimal --summarize
+   # pick a different model:
+   agent-panorama generate --input traces.json --output ./report \
+     --detail minimal --summarize --summarize-model openai:gpt-5-nano
+   ```
+
+If the provider package or key is missing, summarization is skipped gracefully
+(you just get the heuristic line) — it never breaks report generation.
+
+Every call is logged to **`<output>/llm_calls.log`** — the exact system prompt,
+the input sent (with its character count), and the output (or error) for each
+run — so you can audit precisely what went to the model.
+
+### Recommended models (cheapest first)
+
+For this tiny one-shot call any of these is more than capable, so free-tier
+access and price dominate. **Only Gemini Flash / Flash-Lite have a genuine
+no-credit-card free tier**; OpenAI/Anthropic require a positive balance.
+
+| Model (`--summarize-model`) | Price /1M (in → out) | Free tier | Provider extra | API key env var |
+| --- | --- | --- | --- | --- |
+| `google_genai:gemini-2.5-flash-lite` *(default)* | $0.10 → $0.40 | ✅ free, no card (~1,500 req/day) | `gemini` | `GOOGLE_API_KEY` |
+| `google_genai:gemini-2.5-flash` | $0.30 → $2.50 | ✅ free tier (lower quota) | `gemini` | `GOOGLE_API_KEY` |
+| `openai:gpt-5-nano` | $0.05 → $0.40 | ⚠️ no free tier (prepaid) | `openai` | `OPENAI_API_KEY` |
+| `openai:gpt-4.1-nano` | $0.10 → $0.40 | ⚠️ no free tier | `openai` | `OPENAI_API_KEY` |
+| `openai:gpt-4o-mini` | $0.15 → $0.60 | ⚠️ no free tier | `openai` | `OPENAI_API_KEY` |
+| `anthropic:claude-haiku-4-5` | $1.00 → $5.00 | ⚠️ trial credits only | `anthropic` | `ANTHROPIC_API_KEY` |
+
+**Pick `google_genai:gemini-2.5-flash-lite`** (the default) to run this for free.
+`gpt-5-nano` has the lowest paid input price if you already use OpenAI.
+_Prices verified May 2026 against providers' official pricing pages; check them for current rates._
 
 ## Supported inputs
 

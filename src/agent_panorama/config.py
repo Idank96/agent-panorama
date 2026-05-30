@@ -31,6 +31,8 @@ class ReportConfig:
         default_factory=lambda: ["human_handoff", "handoff_to_agent"]
     )
     anomaly_thresholds: AnomalyThresholds = field(default_factory=AnomalyThresholds)
+    detail: str = "standard"
+    summarize_model: str = "google_genai:gemini-2.5-flash-lite"
 
     def describe_tool(self, tool_name: str) -> str:
         """Return the business-readable description for a tool name.
@@ -87,4 +89,6 @@ def _config_from_dict(raw: dict) -> ReportConfig:
         consequential_tools=raw.get("consequential_tools") or [],
         escalation_tools=raw.get("escalation_tools") or ["human_handoff", "handoff_to_agent"],
         anomaly_thresholds=thresholds,
+        detail=str(raw.get("detail") or "standard"),
+        summarize_model=str(raw.get("summarize_model") or "google_genai:gemini-2.5-flash-lite"),
     )

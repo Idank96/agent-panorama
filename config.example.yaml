@@ -25,3 +25,11 @@ anomaly_thresholds:
   max_retries: 2          # more than this many retries is flagged
   max_latency_seconds: 30 # runs slower than this are flagged
   max_tool_calls: 15      # runs with more tool calls than this are flagged
+
+# Step-narrative detail: "minimal", "standard" (default), or "richer".
+# Overridden by the --detail CLI flag.
+detail: standard
+
+# Model used by --summarize to phrase minimal results (opt-in; needs the matching
+# provider extra installed and its API key set). Overridden by --summarize-model.
+summarize_model: "google_genai:gemini-2.5-flash-lite"

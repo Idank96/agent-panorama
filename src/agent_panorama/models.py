@@ -40,6 +40,39 @@ class ToolCall:
 
 
 @dataclass
+class Step:
+    """One meaningful unit of work in an agent run (a graph node or tool call).
+
+    Steps form the run's narrative timeline. A ``node`` step is a framework graph
+    node (e.g. a LangGraph node), a ``tool`` step is a tool execution, and a
+    ``model`` step is model work with no enclosing node. Counts aggregate the
+    activity that happened *inside* the step's subtree.
+    """
+
+    name: str
+    kind: str = "node"
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    status: str = "success"
+    error: str | None = None
+    model_calls: int = 0
+    tool_calls: int = 0
+    tokens: int = 0
+
+    @property
+    def succeeded(self) -> bool:
+        """Whether the step completed without an error."""
+        return self.status == "success" and self.error is None
+
+    @property
+    def duration_seconds(self) -> float | None:
+        """Wall-clock duration of the step in seconds, if both times are known."""
+        if self.start_time is None or self.end_time is None:
+            return None
+        return max(0.0, (self.end_time - self.start_time).total_seconds())
+
+
+@dataclass
 class LLMCall:
     """A single model generation, with token usage."""
 
@@ -66,15 +99,22 @@ class AgentRun:
     name: str
     input_text: str = ""
     output_text: str = ""
+    result_summary: str = ""
     start_time: datetime | None = None
     end_time: datetime | None = None
     outcome: Outcome = Outcome.UNKNOWN
+    steps: list[Step] = field(default_factory=list)
     tool_calls: list[ToolCall] = field(default_factory=list)
     llm_calls: list[LLMCall] = field(default_factory=list)
     retry_count: int = 0
     fallback_used: bool = False
     error_messages: list[str] = field(default_factory=list)
     anomalies: list[str] = field(default_factory=list)
+
+    @property
+    def action_count(self) -> int:
+        """Number of narrative steps the run took (falls back to tool calls)."""
+        return len(self.steps) or len(self.tool_calls)
 
     @property
     def total_input_tokens(self) -> int:
@@ -127,6 +167,11 @@ class Report:
     def total_actions(self) -> int:
         """Number of tool calls across all runs."""
         return sum(len(run.tool_calls) for run in self.runs)
+
+    @property
+    def total_steps(self) -> int:
+        """Number of narrative steps across all runs."""
+        return sum(run.action_count for run in self.runs)
 
     @property
     def total_tokens(self) -> int:

@@ -30,3 +30,6 @@ trace-*.json
 .DS_Store
 .idea/
 .vscode/
+
+# Secrets
+.env

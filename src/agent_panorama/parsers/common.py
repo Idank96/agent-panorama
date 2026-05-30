@@ -5,6 +5,47 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
+from ..models import AgentRun, Step
+
+
+def fallback_steps(run: AgentRun) -> list[Step]:
+    """Synthesize narrative steps when a trace exposes no graph nodes.
+
+    Falls back to one step per tool call, then to a single aggregated model
+    step, so every run still reads as a sequence of actions.
+
+    Args:
+        run: The run whose tool/model calls should be turned into steps.
+
+    Returns:
+        A list of synthesized :class:`Step` objects (possibly empty).
+    """
+    if run.tool_calls:
+        return [
+            Step(
+                name=call.name,
+                kind="tool",
+                start_time=call.timestamp,
+                status=call.status,
+                error=call.error,
+                tool_calls=1,
+            )
+            for call in run.tool_calls
+        ]
+    if run.llm_calls:
+        starts = [c.timestamp for c in run.llm_calls if c.timestamp]
+        return [
+            Step(
+                name="Generated a response",
+                kind="model",
+                start_time=min(starts) if starts else None,
+                status="error" if any(c.status != "success" for c in run.llm_calls) else "success",
+                model_calls=len(run.llm_calls),
+                tokens=run.total_tokens,
+            )
+        ]
+    return []
+
 
 def parse_time(value: object) -> datetime | None:
     """Parse a timestamp from a trace into a timezone-aware datetime.
@@ -101,7 +142,8 @@ def _truncate(text: str, max_length: int) -> str:
 
 
 _HUMAN_ROLES = frozenset({"human", "user"})
-_AI_ROLES = frozenset({"ai", "assistant"})
+# Roles whose content represents output the agent produced (vs. the user's ask).
+_OUTPUT_ROLES = frozenset({"ai", "assistant", "tool", "function"})
 
 
 def summarize_request(value: object, max_length: int = 280) -> str:
@@ -120,14 +162,16 @@ def summarize_request(value: object, max_length: int = 280) -> str:
     humans = [content for role, content in _messages(value) if role in _HUMAN_ROLES]
     if humans:
         return _truncate(humans[0], max_length)
-    return to_text(value, max_length)
+    return _truncate(_stringify(_maybe_json(value)), max_length)
 
 
-def summarize_outcome(value: object, max_length: int = 280) -> str:
+def summarize_outcome(value: object, max_length: int = 1000) -> str:
     """Summarize an agent's final result.
 
-    Prefers the last AI/assistant message in a chat-style payload (the final
-    answer), falling back to a generic stringification.
+    Prefers the last produced message in a chat-style payload (the final
+    answer), falling back to a generic stringification. The default cap is
+    generous so downstream consumers (the optional LLM summarizer) get real
+    context; display truncation is the renderer's job.
 
     Args:
         value: The trace/run output value.
@@ -136,10 +180,15 @@ def summarize_outcome(value: object, max_length: int = 280) -> str:
     Returns:
         A clean, single-line description of the outcome.
     """
-    ai_messages = [content for role, content in _messages(value) if role in _AI_ROLES]
-    if ai_messages:
-        return _truncate(ai_messages[-1], max_length)
-    return to_text(value, max_length)
+    produced = [content for role, content in _messages(value) if role in _OUTPUT_ROLES]
+    if produced:
+        return _truncate(produced[-1], max_length)
+    data = _maybe_json(value)
+    if isinstance(data, dict):
+        result = _first_content(data, _RESULT_KEYS)
+        if result:
+            return _truncate(result, max_length)
+    return _truncate(_stringify(data), max_length)
 
 
 def _messages(value: object) -> list[tuple[str, str]]:
@@ -228,13 +277,34 @@ _CONTENT_KEYS = (
     "description",
 )
 
+# Keys that carry an agent's final result in a state/output payload.
+_RESULT_KEYS = ("report", "result", "answer", "response", "final_answer", "output")
+
 
 def _stringify_dict(data: dict) -> str:
-    """Pull human-readable content out of common message/payload dicts."""
-    for key in _CONTENT_KEYS:
+    """Pull human-readable content out of common message/payload dicts.
+
+    Falls back to a structural field summary rather than dumping the raw object,
+    which keeps large state payloads readable and avoids leaking embedded
+    secrets (e.g. API tokens) into the report.
+    """
+    content = _first_content(data, _CONTENT_KEYS)
+    return content or _structural_summary(data)
+
+
+def _first_content(data: dict, keys: tuple[str, ...]) -> str:
+    """Return the stringified value of the first present, truthy key."""
+    for key in keys:
         if key in data and data[key]:
             return _stringify(data[key])
-    try:
-        return json.dumps(data, ensure_ascii=False)
-    except (TypeError, ValueError):
-        return str(data)
+    return ""
+
+
+def _structural_summary(data: dict, max_fields: int = 6) -> str:
+    """Summarize an unrecognized dict by its field names, never its values."""
+    keys = [str(key) for key in data]
+    if not keys:
+        return ""
+    shown = ", ".join(keys[:max_fields])
+    suffix = f", … ({len(keys)} fields)" if len(keys) > max_fields else ""
+    return f"state with fields: {shown}{suffix}"

@@ -16,11 +16,44 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from ..models import AgentRun, LLMCall, ToolCall
-from .common import extract_tokens, parse_time, summarize_outcome, summarize_request, to_text
+from ..models import AgentRun, LLMCall, Step, ToolCall
+from .common import (
+    extract_tokens,
+    fallback_steps,
+    parse_time,
+    summarize_outcome,
+    summarize_request,
+    to_text,
+)
 
 # Span/event names that wrap orchestration rather than a real tool call.
 _NON_TOOL_HINTS = ("agent", "chain", "graph", "runnable", "llm", "retriever", "embedding")
+
+# Framework plumbing nodes that wrap real steps; unwrapped, never shown as a step.
+_NOISE_NODE_NAMES = frozenset(
+    {
+        "chatprompttemplate",
+        "runnablesequence",
+        "runnablelambda",
+        "runnableparallel",
+        "runnableassign",
+        "runnablemap",
+        "runnablewithfallbacks",
+        "runnablecallable",
+        "langgraph",
+        "__start__",
+        "__end__",
+        "channel_write",
+        "model",
+        "tools",
+        "tool",
+        "agent",
+        "should_continue",
+    }
+)
+
+# Observation types that can stand on their own as an agent step.
+_STEP_TYPES = frozenset({"CHAIN", "AGENT", "SPAN", "TOOL"})
 
 
 def parse(payload: object) -> list[AgentRun]:
@@ -82,6 +115,7 @@ def _parse_trace(trace: dict) -> AgentRun:
     for obs in observations:
         _ingest_observation(obs, run, executed_calls, gen_calls, has_tool_type)
     run.tool_calls = _merge_tool_calls(executed_calls, gen_calls)
+    run.steps = _build_steps(observations, run)
     _backfill_times(run, observations)
     return run
 
@@ -103,6 +137,96 @@ def _sorted_observations(observations: list) -> list[dict]:
     """Return observation dicts sorted by start time (stable for missing times)."""
     obs = [o for o in observations if isinstance(o, dict)]
     return sorted(obs, key=lambda o: parse_time(o.get("startTime")) or datetime.min)
+
+
+def _build_steps(observations: list[dict], run: AgentRun) -> list[Step]:
+    """Derive the run's ordered narrative from the observation tree.
+
+    The steps are the top-most *meaningful* nodes (graph nodes or tools),
+    unwrapping framework plumbing (the LangGraph root, ChatPromptTemplate,
+    Runnable wrappers). When a trace exposes no such nodes, falls back to the
+    run's tool calls, then to a single aggregated model step.
+    """
+    children = _children_by_parent(observations)
+    by_id = {o.get("id") for o in observations if o.get("id")}
+    roots = [o for o in observations if o.get("parentObservationId") not in by_id]
+    candidates = children.get(roots[0].get("id"), []) or roots if len(roots) == 1 else roots
+    step_nodes: list[dict] = []
+    _collect_step_nodes(candidates, children, step_nodes)
+    steps = [_node_to_step(node, children) for node in step_nodes]
+    steps.sort(key=lambda s: s.start_time.timestamp() if s.start_time else float("inf"))
+    return steps or fallback_steps(run)
+
+
+def _children_by_parent(observations: list[dict]) -> dict[object, list[dict]]:
+    """Index observations by their ``parentObservationId``."""
+    children: dict[object, list[dict]] = {}
+    for obs in observations:
+        children.setdefault(obs.get("parentObservationId"), []).append(obs)
+    return children
+
+
+def _collect_step_nodes(
+    nodes: list[dict], children: dict[object, list[dict]], out: list[dict]
+) -> None:
+    """Collect the top-most meaningful nodes, unwrapping plumbing in between."""
+    for node in nodes:
+        if _is_step_node(node):
+            out.append(node)
+        else:
+            _collect_step_nodes(children.get(node.get("id"), []), children, out)
+
+
+def _is_step_node(obs: dict) -> bool:
+    """Whether an observation stands on its own as an agent step.
+
+    Tool executions are always steps; orchestration nodes (chains/agents/spans)
+    count only when their name is not framework plumbing (a graph wrapper like
+    ``model``/``tools`` or a middleware hook like ``*.before_model``).
+    """
+    obs_type = (obs.get("type") or "").upper()
+    if obs_type == "TOOL":
+        return True
+    if obs_type not in _STEP_TYPES:
+        return False
+    return not _is_noise_name(obs.get("name"))
+
+
+def _is_noise_name(name: object) -> bool:
+    """Whether a node name is framework plumbing rather than a real step."""
+    text = str(name or "").strip().lower()
+    if not text or text in _NOISE_NODE_NAMES:
+        return True
+    return ".before_" in text or ".after_" in text or "middleware" in text
+
+
+def _node_to_step(node: dict, children: dict[object, list[dict]]) -> Step:
+    """Build a :class:`Step` from a node, aggregating its subtree activity."""
+    subtree = _subtree(node, children)
+    model_calls = sum(1 for o in subtree if (o.get("type") or "").upper() == "GENERATION")
+    tool_calls = sum(1 for o in subtree if (o.get("type") or "").upper() == "TOOL")
+    tokens = sum(sum(_generation_tokens(o)) for o in subtree)
+    errored = next((o for o in subtree if (o.get("level") or "").upper() == "ERROR"), None)
+    is_tool = (node.get("type") or "").upper() == "TOOL" or _is_tool_span(node)
+    return Step(
+        name=str(node.get("name") or "step"),
+        kind="tool" if is_tool else "node",
+        start_time=parse_time(node.get("startTime")),
+        end_time=parse_time(node.get("endTime")),
+        status="error" if errored else "success",
+        error=to_text(errored.get("statusMessage") or errored.get("output")) if errored else None,
+        model_calls=model_calls,
+        tool_calls=tool_calls,
+        tokens=tokens,
+    )
+
+
+def _subtree(node: dict, children: dict[object, list[dict]]) -> list[dict]:
+    """Return a node and all of its descendants, depth-first."""
+    result = [node]
+    for child in children.get(node.get("id"), []):
+        result.extend(_subtree(child, children))
+    return result
 
 
 def _ingest_observation(
