@@ -14,6 +14,12 @@ export and get clean Markdown + a self-contained HTML report that explains, in
 business language, what your agents did, what they decided, and anything that
 looks off.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard — a cross-agent activity feed in plain English" width="100%">
+</p>
+
+<p align="center"><em>The fleet view — one plain-English activity feed across every agent, with per-run details, outcomes, and cost.</em></p>
+
 ## Why
 
 Traces are great for engineers and terrible for everyone else. `agent-panorama`
@@ -309,7 +315,13 @@ table (see [USD cost](#usd-cost-opt-in)).
 A manager-facing **Agent Panorama** dashboard lives in [`frontend/`](frontend/)
 (Vite + React + TypeScript, outside the Python package). It renders the
 `report.json` produced by `--format json`, falling back to bundled demo data
-when no JSON is present. See `frontend/README.md` for setup; in short:
+when no JSON is present.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard — activity feed with per-run detail panel" width="100%">
+</p>
+
+See `frontend/README.md` for setup; in short:
 
 ```bash
 agent-panorama generate --input 'traces/*.json' --format json --output ./report
