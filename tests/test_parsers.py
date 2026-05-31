@@ -79,6 +79,28 @@ def test_langfuse_graph_nodes_become_steps() -> None:
     assert run.output_text == "All done."
 
 
+def test_langfuse_missing_output_is_empty_not_none() -> None:
+    trace = {
+        "id": "no-out",
+        "name": "support-agent",
+        "timestamp": "2026-05-20T10:00:00Z",
+        "input": {"task": "Issue a refund for order ORD-5567."},
+        "observations": [
+            {
+                "id": "e1",
+                "type": "SPAN",
+                "name": "process_refund",
+                "startTime": "2026-05-20T10:00:01Z",
+                "level": "ERROR",
+                "statusMessage": "Payment gateway rejected the refund",
+            }
+        ],
+    }
+    run = parsers.parse(trace, input_type="langfuse")[0]
+    assert run.output_text == ""
+    assert run.error_messages
+
+
 def test_langfuse_tool_runs_expose_steps() -> None:
     research = next(
         r

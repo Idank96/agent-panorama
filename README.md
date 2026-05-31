@@ -14,6 +14,12 @@ export and get clean Markdown + a self-contained HTML report that explains, in
 business language, what your agents did, what they decided, and anything that
 looks off.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard — a cross-agent activity feed in plain English" width="100%">
+</p>
+
+<p align="center"><em>The fleet view — one plain-English activity feed across every agent, with per-run details, outcomes, and cost.</em></p>
+
 ## Why
 
 Traces are great for engineers and terrible for everyone else. `agent-panorama`
@@ -25,8 +31,9 @@ also pulls the real user request and final answer out of LangGraph/LangChain
 - 3 failed model calls → **"High retry count: 3 failed attempts before completing."**
 - `human_handoff(...)` → run outcome **human-escalated**
 
-> Cost/USD estimation is intentionally out of scope for now — the report reports
-> token usage, not dollars.
+Tokens are the primary metric. **USD cost is opt-in** (since v0.2): supply a
+`model_prices` table in your config and the report adds dollar estimates
+alongside tokens (no prices ⇒ cost stays hidden).
 
 ## Install
 
@@ -37,7 +44,7 @@ uv pip install -e ".[dev]"
 ```
 
 Requires Python 3.10+. Dependencies are intentionally minimal: `click`,
-`jinja2`, `pyyaml`.
+`jinja2`, `pyyaml`, `python-dotenv`.
 
 ## CLI usage
 
@@ -49,19 +56,90 @@ Options:
 
 | Option | Description |
 | --- | --- |
-| `--input` | Path to the Langfuse/LangSmith JSON export (required). |
+| `--input` | Path, glob, or directory of JSON exports. **Repeatable**; globs/dirs are expanded (required). |
 | `--output` | Output directory (default `./report`). |
-| `--format` | `md`, `html`, or `both` (default `both`). |
+| `--format` | `md`, `html`, `json`, or `both` (= md+html; default `both`). |
 | `--input-type` | `langfuse` or `langsmith` (default `langfuse`). |
-| `--config` | Optional YAML config (tool naming, thresholds). |
+| `--config` | Optional YAML config (tool naming, thresholds, `model_prices`). |
 | `--detail` | Step narrative detail: `minimal`, `standard` (default), or `richer`. |
+| `--session` | Keep only runs matching this session id. |
+| `--since` / `--until` | Keep only runs whose start time is within this ISO date/datetime window (UTC). |
 | `--summarize` | Phrase each `minimal` result via a cheap LLM (opt-in, off by default). See below. |
 | `--summarize-model` | LLM id for `--summarize` (default `google_genai:gemini-2.5-flash-lite`). |
 
-Try it on the bundled example:
+Try it on the bundled example, or aggregate a whole fleet:
 
 ```bash
 agent-panorama generate --input examples/langfuse_traces.json --output ./report
+
+# many traces → one fleet report + a feed.json for the dashboard
+agent-panorama generate --input 'traces/*.json' --input more/ \
+  --since 2026-05-01 --until 2026-05-31 --format json --output ./report
+```
+
+### Fleet view (v0.2)
+
+Multiple `--input` flags, glob patterns, and directories are all expanded and
+aggregated into one report. The report then carries a **cross-agent activity
+feed** and **per-agent rollups** (runs, actions, success/escalation/retry rates,
+tokens, and cost when `model_prices` is set). `--format json` writes a
+`report.json` with a stable contract (`generated_at`, `time_range`, `totals`,
+`feed`, `rollups`, `decision_log`) consumed by the frontend dashboard.
+
+### USD cost (opt-in)
+
+Add a `model_prices` table to your config to get dollar estimates next to tokens
+(prices are USD per 1M tokens; keys match model names by substring, longest
+match wins):
+
+```yaml
+model_prices:
+  gpt-4o-mini: { input: 0.15, output: 0.60 }
+  gpt-4o:      { input: 2.50, output: 10.00 }
+  claude-3-5-sonnet: { input: 3.00, output: 15.00 }
+```
+
+With no `model_prices` block, cost is omitted entirely and tokens remain the
+only metric.
+
+### The `report.json` contract
+
+`--format json` writes a `report.json` with a stable shape (also the input the
+[dashboard](#frontend-dashboard) consumes). Every timestamp is ISO-8601 UTC or
+`null`; every `*cost_usd` is a number or `null` (null when no `model_prices`
+matched). `outcome` is one of `success`, `human-escalated`, `failure`, `unknown`.
+
+```jsonc
+{
+  "generated_at": "2026-05-31T09:42:00+00:00",
+  "time_range": { "start": "…", "end": "…" },
+  "totals":     { "runs": 4, "steps": 7, "tokens": 3990, "cost_usd": 0.0134 },
+  "feed": [                                  // one entry per run, newest first
+    {
+      "run_id": "…", "agent_name": "research-assistant",
+      "agent_key": "research-assistant",     // slug, for stable UI grouping/colour
+      "action": "Searched the web and summarized 3 papers.",
+      "outcome": "success", "timestamp": "…",
+      "retry_count": 0, "anomaly_count": 0,
+      "tokens": 1234, "cost_usd": 0.006,
+      "summary": "…", "facts": [["Steps", "5"], ["Retries", "0"]],
+      "anomalies": []
+    }
+  ],
+  "rollups": [                               // one per agent
+    {
+      "agent_name": "research-assistant", "agent_key": "research-assistant",
+      "runs": 1, "actions": 5,
+      "success_rate": 1.0, "escalation_rate": 0.0,
+      "failure_rate": 0.0, "retry_rate": 0.0,
+      "total_tokens": 1234, "total_cost_usd": 0.006
+    }
+  ],
+  "decision_log": [                          // consequential actions across agents
+    { "timestamp": "…", "agent_name": "…", "action": "…",
+      "parameters": "…", "outcome": "succeeded" }
+  ]
+}
 ```
 
 ## Library usage
@@ -84,9 +162,46 @@ print(report.total_runs, report.total_tokens)
 the decision log, and anomalies programmatically without touching disk (use
 `build_report_from_file` if you want the report without writing files).
 
+### Fleet API (v0.2)
+
+`generate_report` (and the lower-level `build_report_from_inputs`) accept a glob,
+a directory, or a list of paths via `inputs=`, plus `session` / `since` / `until`
+filters. The returned `Report` exposes the cross-agent `feed` and per-agent
+`rollups`; `serialize_report` gives you the `report.json` dict directly.
+
+```python
+from agent_panorama import (
+    generate_report, build_report_from_inputs, load_runs,
+    load_config, serialize_report,
+)
+
+report = generate_report(
+    inputs=["traces/*.json", "more/"],   # globs, dirs, or a single path
+    formats=["json"],                    # writes report.json
+    since="2026-05-01", until="2026-05-31",
+    config="config.yaml",                # model_prices here ⇒ cost is populated
+)
+
+for item in report.feed:                 # newest-first activity feed
+    print(item.agent_name, item.action, item.outcome.value, item.tokens, item.cost_usd)
+
+for r in report.rollups:                 # per-agent success/escalation/retry rates
+    print(r.agent_name, r.runs, r.success_rate, r.escalation_rate, r.retry_rate)
+
+# No files? Build in memory and serialize the JSON contract yourself:
+runs = load_runs("traces/*.json", session="abc123")
+mem = build_report_from_inputs("traces/*.json", "langfuse", load_config("config.yaml"))
+payload = serialize_report(mem, load_config("config.yaml"))  # -> dict
+```
+
 ## What's in a report
 
-- **Summary** — time range, total runs, total steps, total tokens.
+- **Summary** — time range, total runs, total steps, total tokens (and total cost
+  when `model_prices` is set).
+- **Fleet activity feed** _(v0.2)_ — one scannable, newest-first line per run across
+  every agent: who did what, in plain English, with outcome and timing.
+- **Per-agent rollups** _(v0.2)_ — one row per agent: runs, actions, and
+  success / escalation / retry rates, plus tokens and cost.
 - **Per-agent section** — what it was asked to do, what it did step by step (graph
   nodes / tool calls in plain English, at the chosen `--detail` level), final
   outcome, and a confidence signal (retries / fallback).
@@ -192,7 +307,27 @@ _Prices verified May 2026 against providers' official pricing pages; check them 
   each root run is flattened into one agent run.
 
 Token usage is read from the trace (`inputUsage`/`outputUsage` or
-`usage`/`usage_metadata`). Dollar-cost estimation is intentionally out of scope.
+`usage`/`usage_metadata`). Dollar cost is opt-in via a `model_prices` config
+table (see [USD cost](#usd-cost-opt-in)).
+
+## Frontend dashboard
+
+A manager-facing **Agent Panorama** dashboard lives in [`frontend/`](frontend/)
+(Vite + React + TypeScript, outside the Python package). It renders the
+`report.json` produced by `--format json`, falling back to bundled demo data
+when no JSON is present.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard — activity feed with per-run detail panel" width="100%">
+</p>
+
+See `frontend/README.md` for setup; in short:
+
+```bash
+agent-panorama generate --input 'traces/*.json' --format json --output ./report
+cp report/report.json frontend/public/feed.json
+cd frontend && npm install && npm run dev
+```
 
 ## Roadmap
 
@@ -205,7 +340,7 @@ did, decided, and got wrong. More than logs, across more than one agent.
 - Plain-language per-agent summaries, decision log, anomalies
 - Markdown + self-contained HTML output; CLI and library API
 
-**🔜 v0.2 — See the whole fleet (the panorama view)**
+**✅ v0.2 — See the whole fleet (the panorama view)**
 - A unified **cross-agent activity feed** — one scannable timeline of what every
   agent did, in plain English:
 

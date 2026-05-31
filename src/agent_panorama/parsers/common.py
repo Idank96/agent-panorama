@@ -253,6 +253,8 @@ def _maybe_json(value: object) -> object:
 
 def _stringify(value: object) -> str:
     """Convert a value to a string, extracting message content when possible."""
+    if value is None:
+        return ""
     if isinstance(value, str):
         return value
     if isinstance(value, dict):

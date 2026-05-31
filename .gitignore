@@ -33,3 +33,6 @@ trace-*.json
 
 # Secrets
 .env
+
+# Personal docs (not tracked)
+idan_docs/

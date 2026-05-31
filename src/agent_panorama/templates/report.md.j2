@@ -25,6 +25,27 @@ _No steps recorded._
 - **Steps:** {{ run.action_count | fmt_int }} · **Model calls:** {{ run.llm_calls | length }} · **Tokens:** {{ run.total_tokens | fmt_int }}
 
 {% endfor %}
+{% if report.feed %}
+## Fleet activity
+
+{% for item in report.feed %}
+- **{{ item.agent_name }}** · {{ item.action or "—" }} · {{ item.outcome.value }} · {{ item.timestamp | fmt_time }}
+{% endfor %}
+
+{% endif %}
+{% if report.rollups %}
+## Per-agent rollups
+
+| Agent | Runs | Actions | Success % | Escalation % | Retry % | Tokens |{% if report.total_cost_usd is not none %} Cost |{% endif %}
+
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |{% if report.total_cost_usd is not none %} ---: |{% endif %}
+
+{% for rollup in report.rollups %}
+| {{ rollup.agent_name }} | {{ rollup.runs | fmt_int }} | {{ rollup.actions | fmt_int }} | {{ "%.0f%%" | format(rollup.success_rate * 100) }} | {{ "%.0f%%" | format(rollup.escalation_rate * 100) }} | {{ "%.0f%%" | format(rollup.retry_rate * 100) }} | {{ rollup.total_tokens | fmt_int }} |{% if report.total_cost_usd is not none %} {% if rollup.total_cost_usd is not none %}${{ "%.4f" | format(rollup.total_cost_usd) }}{% else %}—{% endif %} |{% endif %}
+
+{% endfor %}
+
+{% endif %}
 ## Summary
 
 | Metric | Value |
@@ -33,4 +54,7 @@ _No steps recorded._
 | Total agent runs | {{ report.total_runs | fmt_int }} |
 | Total steps | {{ report.total_steps | fmt_int }} |
 | Total tokens | {{ report.total_tokens | fmt_int }} |
+{% if report.total_cost_usd is not none %}
+| Total cost | ${{ "%.4f" | format(report.total_cost_usd) }} |
+{% endif %}
 

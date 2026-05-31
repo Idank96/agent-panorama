@@ -48,6 +48,20 @@
   .footer { color: var(--muted); font-size: 13px; margin-top: 12px; }
   .footer b { color: var(--ink); font-weight: 600; }
   .empty { color: var(--muted); font-style: italic; }
+  ul.feed { list-style: none; margin: 0; padding: 0; }
+  ul.feed li {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center;
+    gap: 10px; flex-wrap: wrap; font-size: 14px;
+  }
+  ul.feed .who { font-weight: 600; }
+  ul.feed .when { color: var(--muted); font-size: 12px; margin-left: auto; }
+  table.rollups { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.rollups th, table.rollups td {
+    text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--line);
+  }
+  table.rollups th:first-child, table.rollups td:first-child { text-align: left; }
+  table.rollups th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 </style>
 </head>
 <body>
@@ -85,12 +99,58 @@
   </div>
   {% endfor %}
 
+  {% if report.feed %}
+  <h2>Fleet activity</h2>
+  <ul class="feed">
+    {% for item in report.feed %}
+    <li>
+      <span class="who">{{ item.agent_name }}</span>
+      <span>{{ item.action or "—" }}</span>
+      <span class="badge {{ item.outcome.value }}">{{ item.outcome.value }}</span>
+      <span class="when">{{ item.timestamp | fmt_time }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if report.rollups %}
+  <h2>Per-agent rollups</h2>
+  <table class="rollups">
+    <thead>
+      <tr>
+        <th>Agent</th><th>Runs</th><th>Actions</th><th>Success</th>
+        <th>Escalation</th><th>Retry</th><th>Tokens</th>
+        {% if report.total_cost_usd is not none %}<th>Cost</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for rollup in report.rollups %}
+      <tr>
+        <td>{{ rollup.agent_name }}</td>
+        <td>{{ rollup.runs | fmt_int }}</td>
+        <td>{{ rollup.actions | fmt_int }}</td>
+        <td>{{ "%.0f%%" | format(rollup.success_rate * 100) }}</td>
+        <td>{{ "%.0f%%" | format(rollup.escalation_rate * 100) }}</td>
+        <td>{{ "%.0f%%" | format(rollup.retry_rate * 100) }}</td>
+        <td>{{ rollup.total_tokens | fmt_int }}</td>
+        {% if report.total_cost_usd is not none %}
+        <td>{% if rollup.total_cost_usd is not none %}${{ "%.4f" | format(rollup.total_cost_usd) }}{% else %}&mdash;{% endif %}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
   <h2>Summary</h2>
   <div class="sub">{{ start | fmt_time }} &rarr; {{ end | fmt_time }}</div>
   <div class="cards">
     <div class="card"><div class="label">Agent runs</div><div class="value">{{ report.total_runs | fmt_int }}</div></div>
     <div class="card"><div class="label">Steps</div><div class="value">{{ report.total_steps | fmt_int }}</div></div>
     <div class="card"><div class="label">Tokens</div><div class="value">{{ report.total_tokens | fmt_int }}</div></div>
+    {% if report.total_cost_usd is not none %}
+    <div class="card"><div class="label">Cost</div><div class="value">${{ "%.4f" | format(report.total_cost_usd) }}</div></div>
+    {% endif %}
   </div>
 </div>
 </body>

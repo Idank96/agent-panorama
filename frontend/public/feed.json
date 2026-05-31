@@ -1,0 +1,337 @@
+{
+  "generated_at": "2026-05-31T06:35:58.613849+00:00",
+  "time_range": {
+    "start": "2026-05-31T09:30:00+00:00",
+    "end": "2026-05-31T13:42:05.600000+00:00"
+  },
+  "totals": {
+    "runs": 6,
+    "steps": 10,
+    "tokens": 10370,
+    "cost_usd": 0.0300235
+  },
+  "feed": [
+    {
+      "run_id": "biz-001",
+      "agent_name": "sales-agent",
+      "agent_key": "sales-agent",
+      "action": "Prepared the $48,000 deal proposal for customer ABC-123 from the approved template and emailed it for signature.",
+      "outcome": "success",
+      "timestamp": "2026-05-31T13:42:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 2650,
+      "cost_usd": 0.00925,
+      "summary": "Prepared the $48,000 deal proposal for customer ABC-123 from the approved template and emailed it for signature.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "2"
+        ],
+        [
+          "Tokens",
+          "2,650"
+        ],
+        [
+          "Est. cost",
+          "$0.0092"
+        ]
+      ],
+      "anomalies": []
+    },
+    {
+      "run_id": "biz-002",
+      "agent_name": "inbox-agent",
+      "agent_key": "inbox-agent",
+      "action": "Scanned 38 new emails, identified 1 high-priority message, and sent you a short summary.",
+      "outcome": "success",
+      "timestamp": "2026-05-31T13:20:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 1490,
+      "cost_usd": 0.00030900000000000003,
+      "summary": "Scanned 38 new emails, identified 1 high-priority message, and sent you a short summary.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "2"
+        ],
+        [
+          "Tokens",
+          "1,490"
+        ],
+        [
+          "Est. cost",
+          "$0.0003"
+        ]
+      ],
+      "anomalies": []
+    },
+    {
+      "run_id": "biz-003",
+      "agent_name": "finance-agent",
+      "agent_key": "finance-agent",
+      "action": "Compiled the Q2 expense report from the synced ledger and emailed it to the finance team.",
+      "outcome": "success",
+      "timestamp": "2026-05-31T12:30:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 2420,
+      "cost_usd": 0.0111,
+      "summary": "Compiled the Q2 expense report from the synced ledger and emailed it to the finance team.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "2,420"
+        ],
+        [
+          "Est. cost",
+          "$0.0111"
+        ]
+      ],
+      "anomalies": []
+    },
+    {
+      "run_id": "biz-004",
+      "agent_name": "recruiting-agent",
+      "agent_key": "recruiting-agent",
+      "action": "Flagged the application for human review.",
+      "outcome": "human-escalated",
+      "timestamp": "2026-05-31T11:15:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 2040,
+      "cost_usd": 0.009000000000000001,
+      "summary": "Candidate #4821 scored inside the ambiguous review band, so the application was flagged for human review before advancing.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "2,040"
+        ],
+        [
+          "Est. cost",
+          "$0.0090"
+        ]
+      ],
+      "anomalies": []
+    },
+    {
+      "run_id": "biz-005",
+      "agent_name": "ops-agent",
+      "agent_key": "ops-agent",
+      "action": "Placed a replenishment order for 500 units of part SKU-22 with the preferred supplier.",
+      "outcome": "success",
+      "timestamp": "2026-05-31T10:05:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 1190,
+      "cost_usd": 0.0002505,
+      "summary": "Placed a replenishment order for 500 units of part SKU-22 with the preferred supplier.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "2"
+        ],
+        [
+          "Tokens",
+          "1,190"
+        ],
+        [
+          "Est. cost",
+          "$0.0003"
+        ]
+      ],
+      "anomalies": []
+    },
+    {
+      "run_id": "biz-006",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Issue a refund for order ORD-5567.",
+      "outcome": "failure",
+      "timestamp": "2026-05-31T09:30:00+00:00",
+      "retry_count": 1,
+      "anomaly_count": 1,
+      "tokens": 580,
+      "cost_usd": 0.00011399999999999998,
+      "summary": "",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "1"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "580"
+        ],
+        [
+          "Est. cost",
+          "$0.0001"
+        ]
+      ],
+      "anomalies": [
+        "Errors encountered: Payment gateway rejected the refund for ORD-5567 (code: DECLINED)"
+      ]
+    }
+  ],
+  "rollups": [
+    {
+      "agent_name": "sales-agent",
+      "agent_key": "sales-agent",
+      "runs": 1,
+      "actions": 2,
+      "success_rate": 1.0,
+      "escalation_rate": 0.0,
+      "failure_rate": 0.0,
+      "retry_rate": 0.0,
+      "total_tokens": 2650,
+      "total_cost_usd": 0.00925
+    },
+    {
+      "agent_name": "inbox-agent",
+      "agent_key": "inbox-agent",
+      "runs": 1,
+      "actions": 2,
+      "success_rate": 1.0,
+      "escalation_rate": 0.0,
+      "failure_rate": 0.0,
+      "retry_rate": 0.0,
+      "total_tokens": 1490,
+      "total_cost_usd": 0.00030900000000000003
+    },
+    {
+      "agent_name": "finance-agent",
+      "agent_key": "finance-agent",
+      "runs": 1,
+      "actions": 2,
+      "success_rate": 1.0,
+      "escalation_rate": 0.0,
+      "failure_rate": 0.0,
+      "retry_rate": 0.0,
+      "total_tokens": 2420,
+      "total_cost_usd": 0.0111
+    },
+    {
+      "agent_name": "recruiting-agent",
+      "agent_key": "recruiting-agent",
+      "runs": 1,
+      "actions": 2,
+      "success_rate": 0.0,
+      "escalation_rate": 1.0,
+      "failure_rate": 0.0,
+      "retry_rate": 0.0,
+      "total_tokens": 2040,
+      "total_cost_usd": 0.009000000000000001
+    },
+    {
+      "agent_name": "ops-agent",
+      "agent_key": "ops-agent",
+      "runs": 1,
+      "actions": 1,
+      "success_rate": 1.0,
+      "escalation_rate": 0.0,
+      "failure_rate": 0.0,
+      "retry_rate": 0.0,
+      "total_tokens": 1190,
+      "total_cost_usd": 0.0002505
+    },
+    {
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "runs": 1,
+      "actions": 1,
+      "success_rate": 0.0,
+      "escalation_rate": 0.0,
+      "failure_rate": 1.0,
+      "retry_rate": 1.0,
+      "total_tokens": 580,
+      "total_cost_usd": 0.00011399999999999998
+    }
+  ],
+  "decision_log": [
+    {
+      "timestamp": "2026-05-31T11:15:04.100000+00:00",
+      "agent_name": "recruiting-agent",
+      "action": "Handed the task off to a person",
+      "parameters": "reason: ambiguous score band, queue: recruiting",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-05-31T12:30:05.300000+00:00",
+      "agent_name": "finance-agent",
+      "action": "Sent an email",
+      "parameters": "to: finance@acme.example, subject: Q2 expense report, attach: exp-q2-26",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-05-31T13:20:03.600000+00:00",
+      "agent_name": "inbox-agent",
+      "action": "Sent an email",
+      "parameters": "to: user, subject: Inbox summary \u2014 1 important item",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-05-31T13:42:04.100000+00:00",
+      "agent_name": "sales-agent",
+      "action": "Sent an email",
+      "parameters": "to: contact@abc-123.example, subject: Your proposal from Acme, attach: prop-7741",
+      "outcome": "succeeded"
+    }
+  ]
+}

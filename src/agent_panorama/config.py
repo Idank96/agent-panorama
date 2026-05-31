@@ -33,6 +33,25 @@ class ReportConfig:
     anomaly_thresholds: AnomalyThresholds = field(default_factory=AnomalyThresholds)
     detail: str = "standard"
     summarize_model: str = "google_genai:gemini-2.5-flash-lite"
+    model_prices: dict[str, dict] = field(default_factory=dict)
+
+    def price_for(self, model: str) -> dict | None:
+        """Return USD-per-1M-token prices for a model, by substring match.
+
+        Args:
+            model: The raw model name from a trace.
+
+        Returns:
+            The matching ``{"input": ..., "output": ...}`` mapping, choosing the
+            longest matching substring key when several match, or None when no
+            key matches (or no prices are configured).
+        """
+        if not model or not self.model_prices:
+            return None
+        matches = [(key, price) for key, price in self.model_prices.items() if key in model]
+        if not matches:
+            return None
+        return max(matches, key=lambda item: len(item[0]))[1]
 
     def describe_tool(self, tool_name: str) -> str:
         """Return the business-readable description for a tool name.
@@ -91,4 +110,5 @@ def _config_from_dict(raw: dict) -> ReportConfig:
         anomaly_thresholds=thresholds,
         detail=str(raw.get("detail") or "standard"),
         summarize_model=str(raw.get("summarize_model") or "google_genai:gemini-2.5-flash-lite"),
+        model_prices=raw.get("model_prices") or {},
     )
