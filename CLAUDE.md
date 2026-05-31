@@ -25,6 +25,19 @@ uv build                                 # sdist + wheel into dist/
 CI (`.github/workflows/ci.yml`) runs ruff + the suite on Python 3.10/3.11/3.12.
 Validate those three commands locally before pushing — the first CI run should be green.
 
+The `frontend/` dashboard is a separate npm project (run commands from `frontend/`):
+
+```bash
+npm install        # one-time
+npm run dev        # Vite dev server (reads public/feed.json)
+npm run test       # vitest run (the loadFeed.test.ts suite)
+npm run build      # tsc -b && vite build
+npm run sync:feed  # cp ../report/report.json public/feed.json (refresh the data it renders)
+```
+
+**CI does not cover `frontend/`** — ruff/pytest gate only the Python package, so frontend
+type-checks and `npm run test` must be run by hand before touching the dashboard.
+
 ## Architecture: a three-stage pipeline over a normalized model
 
 The whole system is **parse → analyze → render**, with `models.py` as the contract that
