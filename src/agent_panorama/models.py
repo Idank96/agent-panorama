@@ -110,6 +110,7 @@ class AgentRun:
     fallback_used: bool = False
     error_messages: list[str] = field(default_factory=list)
     anomalies: list[str] = field(default_factory=list)
+    cost_usd: float | None = None
 
     @property
     def action_count(self) -> int:
@@ -151,11 +152,48 @@ class DecisionLogEntry:
 
 
 @dataclass
+class FeedItem:
+    """One cross-agent activity-feed entry, derived from a single run."""
+
+    run_id: str
+    agent_name: str
+    agent_key: str
+    action: str
+    outcome: Outcome
+    timestamp: datetime | None
+    retry_count: int
+    anomaly_count: int
+    tokens: int
+    cost_usd: float | None
+    summary: str
+    facts: list[tuple[str, str]] = field(default_factory=list)
+    anomalies: list[str] = field(default_factory=list)
+
+
+@dataclass
+class AgentRollup:
+    """Aggregated per-agent activity across all runs of one agent."""
+
+    agent_name: str
+    agent_key: str
+    runs: int
+    actions: int
+    success_rate: float
+    escalation_rate: float
+    failure_rate: float
+    retry_rate: float
+    total_tokens: int
+    total_cost_usd: float | None
+
+
+@dataclass
 class Report:
     """The full report payload handed to the templates."""
 
     runs: list[AgentRun]
     decision_log: list[DecisionLogEntry]
+    feed: list[FeedItem] = field(default_factory=list)
+    rollups: list[AgentRollup] = field(default_factory=list)
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
@@ -184,6 +222,12 @@ class Report:
         starts = [r.start_time for r in self.runs if r.start_time]
         ends = [r.end_time for r in self.runs if r.end_time]
         return (min(starts) if starts else None, max(ends) if ends else None)
+
+    @property
+    def total_cost_usd(self) -> float | None:
+        """Total estimated USD cost, or None when no run has a cost."""
+        costs = [run.cost_usd for run in self.runs if run.cost_usd is not None]
+        return sum(costs) if costs else None
 
     @property
     def all_anomalies(self) -> list[tuple[str, str]]:

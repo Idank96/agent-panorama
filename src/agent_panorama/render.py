@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import re
 from datetime import datetime
 
 from jinja2 import Environment, PackageLoader
 
 from .config import ReportConfig
 from .models import AgentRun, Report, Step
+from .text import condense
 
 _TEMPLATES = {"md": "report.md.j2", "html": "report.html.j2"}
 
@@ -128,7 +128,7 @@ def _result_text(run: AgentRun, detail: str) -> str:
     if not run.output_text:
         return run.output_text
     if detail == "minimal":
-        return run.result_summary or _condense(run.output_text)
+        return run.result_summary or condense(run.output_text)
     return _clip(run.output_text, _RESULT_DISPLAY_CHARS)
 
 
@@ -137,16 +137,6 @@ def _clip(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 1].rstrip() + "…"
-
-
-def _condense(text: str) -> str:
-    """Reduce a result to its leading sentence, free of tables and symbols."""
-    head = text.split(" | ")[0]
-    head = re.split(r"(?<=[.!?])\s", head, maxsplit=1)[0]
-    head = re.sub(r"^[^0-9A-Za-z]+", "", head).strip().rstrip(":").strip()
-    if head and head[-1] not in ".!?":
-        head += "."
-    return head
 
 
 def _fmt_time(value: datetime | None) -> str:

@@ -9,7 +9,8 @@ unusual.
 from __future__ import annotations
 
 from .config import ReportConfig
-from .models import AgentRun, DecisionLogEntry, Outcome, Report, ToolCall
+from .models import AgentRollup, AgentRun, DecisionLogEntry, FeedItem, Outcome, Report, ToolCall
+from .text import condense, slugify
 
 
 def build_report(runs: list[AgentRun], config: ReportConfig) -> Report:
@@ -24,8 +25,25 @@ def build_report(runs: list[AgentRun], config: ReportConfig) -> Report:
     """
     for run in runs:
         _enrich_run(run, config)
-    decision_log = _build_decision_log(runs, config)
-    return Report(runs=runs, decision_log=decision_log)
+    return Report(
+        runs=runs,
+        decision_log=_build_decision_log(runs, config),
+        feed=_build_feed(runs, config),
+        rollups=_build_rollups(runs, config),
+    )
+
+
+def rebuild_feed(report: Report, config: ReportConfig) -> None:
+    """Recompute the activity feed from current run state, in place.
+
+    Call this after mutating runs post-build (e.g. LLM summarization sets
+    ``result_summary``) so the feed's action text reflects the new values.
+
+    Args:
+        report: The report whose feed should be refreshed.
+        config: Report configuration controlling naming.
+    """
+    report.feed = _build_feed(report.runs, config)
 
 
 def _enrich_run(run: AgentRun, config: ReportConfig) -> None:
@@ -34,6 +52,26 @@ def _enrich_run(run: AgentRun, config: ReportConfig) -> None:
     run.fallback_used = _detect_fallback(run)
     run.outcome = _determine_outcome(run, config)
     run.anomalies = _detect_anomalies(run, config)
+    run.cost_usd = _estimate_cost(run, config)
+
+
+def _estimate_cost(run: AgentRun, config: ReportConfig) -> float | None:
+    """Estimate a run's USD cost from priced model calls.
+
+    Sums input/output token cost across every model call whose model matches a
+    configured price. Returns None when no call matched a price (so cost stays
+    absent rather than misleadingly zero).
+    """
+    total = 0.0
+    matched = False
+    for call in run.llm_calls:
+        price = config.price_for(call.model)
+        if price is None:
+            continue
+        matched = True
+        total += call.input_tokens / 1e6 * price.get("input", 0.0)
+        total += call.output_tokens / 1e6 * price.get("output", 0.0)
+    return total if matched else None
 
 
 def _count_retries(run: AgentRun) -> int:
@@ -171,3 +209,79 @@ def _format_pair(key: str, value: object, max_value: int) -> str:
     if len(rendered) > max_value:
         rendered = rendered[: max_value - 1].rstrip() + "…"
     return f"{label}: {rendered}"
+
+
+def _build_feed(runs: list[AgentRun], config: ReportConfig) -> list[FeedItem]:
+    """Build one cross-agent feed item per run, newest first."""
+    items = [_to_feed_item(run, config) for run in runs]
+    items.sort(key=lambda item: item.timestamp.timestamp() if item.timestamp else float("-inf"))
+    items.reverse()
+    return items
+
+
+def _to_feed_item(run: AgentRun, config: ReportConfig) -> FeedItem:
+    """Build a single feed item from an enriched run."""
+    return FeedItem(
+        run_id=run.run_id,
+        agent_name=run.name,
+        agent_key=slugify(run.name),
+        action=_action_text(run),
+        outcome=run.outcome,
+        timestamp=run.start_time,
+        retry_count=run.retry_count,
+        anomaly_count=len(run.anomalies),
+        tokens=run.total_tokens,
+        cost_usd=run.cost_usd,
+        summary=condense(run.output_text),
+        facts=_feed_facts(run),
+        anomalies=list(run.anomalies),
+    )
+
+
+def _action_text(run: AgentRun) -> str:
+    """Pick the most descriptive one-line action label for a run."""
+    return run.result_summary or condense(run.output_text) or condense(run.input_text)
+
+
+def _feed_facts(run: AgentRun) -> list[tuple[str, str]]:
+    """Build the compact key/value facts shown on a feed item."""
+    facts = [
+        ("Steps", str(run.action_count)),
+        ("Retries", str(run.retry_count)),
+        ("Model calls", str(len(run.llm_calls))),
+        ("Tokens", f"{run.total_tokens:,}"),
+    ]
+    if run.cost_usd is not None:
+        facts.append(("Est. cost", f"${run.cost_usd:.4f}"))
+    return facts
+
+
+def _build_rollups(runs: list[AgentRun], config: ReportConfig) -> list[AgentRollup]:
+    """Aggregate runs into per-agent rollups, grouped by agent key."""
+    groups: dict[str, list[AgentRun]] = {}
+    for run in runs:
+        groups.setdefault(slugify(run.name), []).append(run)
+    return [_to_rollup(key, group) for key, group in groups.items()]
+
+
+def _to_rollup(agent_key: str, group: list[AgentRun]) -> AgentRollup:
+    """Compute a single agent's rollup metrics and outcome rates."""
+    total = len(group)
+    costs = [run.cost_usd for run in group if run.cost_usd is not None]
+    return AgentRollup(
+        agent_name=group[0].name,
+        agent_key=agent_key,
+        runs=total,
+        actions=sum(len(run.tool_calls) for run in group),
+        success_rate=_rate(group, total, Outcome.SUCCESS),
+        escalation_rate=_rate(group, total, Outcome.ESCALATED),
+        failure_rate=_rate(group, total, Outcome.FAILURE),
+        retry_rate=sum(1 for run in group if run.retry_count > 0) / total,
+        total_tokens=sum(run.total_tokens for run in group),
+        total_cost_usd=sum(costs) if costs else None,
+    )
+
+
+def _rate(group: list[AgentRun], total: int, outcome: Outcome) -> float:
+    """Share of runs in ``group`` with the given outcome."""
+    return sum(1 for run in group if run.outcome == outcome) / total

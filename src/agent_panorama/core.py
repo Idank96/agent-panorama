@@ -2,39 +2,54 @@
 
 from __future__ import annotations
 
+import glob
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import parsers
-from .analysis import build_report
+from .analysis import build_report, rebuild_feed
 from .config import ReportConfig, load_config
-from .models import Report
+from .export import serialize_report
+from .models import AgentRun, Report
 from .render import render
 
-_EXTENSIONS = {"md": ".md", "html": ".html"}
+if TYPE_CHECKING:
+    from .summarize import SummaryExchange
+
+_EXTENSIONS = {"md": ".md", "html": ".html", "json": ".json"}
 
 
 def generate_report(
-    input_path: str | Path,
+    inputs: str | Path | list[str | Path] | None = None,
     output_dir: str | Path = "./report",
     formats: list[str] | None = None,
     input_type: str = "langfuse",
     config: ReportConfig | str | Path | None = None,
     detail: str | None = None,
     summarize: bool = False,
+    *,
+    input_path: str | Path | None = None,
+    session: str | None = None,
+    since: str | datetime | None = None,
+    until: str | datetime | None = None,
 ) -> Report:
-    """Generate Agent Activity Report files from a trace export.
+    """Generate Agent Activity Report files from one or more trace exports.
 
     Args:
-        input_path: Path to a Langfuse/LangSmith JSON export.
-        output_dir: Directory to write ``report.md`` / ``report.html`` into.
+        inputs: A path, glob, directory, or list of any of those. Back-compatible
+            with a single path passed positionally.
+        output_dir: Directory to write report files into.
         formats: Output formats to write; defaults to ``["md", "html"]``.
         input_type: Trace format, ``"langfuse"`` or ``"langsmith"``.
         config: A :class:`ReportConfig`, a path to a YAML config, or None.
-        detail: Narrative detail level (``"minimal"``/``"standard"``/``"richer"``);
-            when set, overrides the value from ``config``.
-        summarize: When True, phrase each run's minimal result via a cheap LLM
-            (see :mod:`agent_panorama.summarize`). Opt-in; off by default.
+        detail: Narrative detail level; when set, overrides ``config``.
+        summarize: When True, phrase each run's minimal result via a cheap LLM.
+        input_path: Deprecated alias for ``inputs`` (kept for back-compat).
+        session: Keep only runs matching this session id.
+        since: Keep only runs starting at or after this ISO date/datetime.
+        until: Keep only runs starting at or before this ISO date/datetime.
 
     Returns:
         The in-memory :class:`Report` that was rendered.
@@ -42,9 +57,13 @@ def generate_report(
     report_config = _resolve_config(config)
     if detail is not None:
         report_config.detail = detail
-    report = build_report_from_file(input_path, input_type, report_config)
+    source = inputs if inputs is not None else input_path
+    report = build_report_from_inputs(
+        source, input_type, report_config, session=session, since=since, until=until
+    )
     if summarize:
         _summarize_results(report, report_config, Path(output_dir))
+        rebuild_feed(report, report_config)
     _write_outputs(report, report_config, output_dir, formats or ["md", "html"])
     return report
 
@@ -80,7 +99,7 @@ def _write_llm_log(path: Path, exchanges: list) -> None:
         handle.write("".join(blocks))
 
 
-def _format_llm_block(stamp: str, run_id: str, name: str, exchange) -> str:
+def _format_llm_block(stamp: str, run_id: str, name: str, exchange: SummaryExchange) -> str:
     """Render one LLM exchange as a delimited, readable log block."""
     rule = "=" * 72
     output = (
@@ -112,6 +131,128 @@ def build_report_from_file(input_path: str | Path, input_type: str, config: Repo
     return build_report(runs, config)
 
 
+def build_report_from_inputs(
+    inputs: str | Path | list[str | Path] | None,
+    input_type: str,
+    config: ReportConfig,
+    *,
+    session: str | None = None,
+    since: str | datetime | None = None,
+    until: str | datetime | None = None,
+) -> Report:
+    """Load runs from one or more inputs, filter them, and build the report.
+
+    Args:
+        inputs: A path, glob, directory, or list of any of those.
+        input_type: Trace format, ``"langfuse"`` or ``"langsmith"``.
+        config: Report configuration.
+        session: Keep only runs matching this session id.
+        since: Lower bound (inclusive) on each run's start time.
+        until: Upper bound (inclusive) on each run's start time.
+
+    Returns:
+        The assembled :class:`Report`.
+    """
+    runs = load_runs(inputs, input_type, session=session, since=since, until=until)
+    return build_report(runs, config)
+
+
+def load_runs(
+    inputs: str | Path | list[str | Path] | None,
+    input_type: str = "langfuse",
+    *,
+    session: str | None = None,
+    since: str | datetime | None = None,
+    until: str | datetime | None = None,
+) -> list[AgentRun]:
+    """Load and filter runs from any combination of files, globs, and dirs.
+
+    Args:
+        inputs: A path, glob, directory, or list of any of those.
+        input_type: Trace format, ``"langfuse"`` or ``"langsmith"``.
+        session: Keep only runs matching this session id.
+        since: Lower bound (inclusive) on each run's start time.
+        until: Upper bound (inclusive) on each run's start time.
+
+    Returns:
+        The concatenated, filtered list of runs.
+
+    Raises:
+        ValueError: If ``inputs`` resolves to zero existing JSON files.
+    """
+    files = _resolve_files(inputs)
+    if not files:
+        raise ValueError(f"No JSON files matched the given input(s): {inputs!r}")
+    runs: list[AgentRun] = []
+    for path in files:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        runs.extend(parsers.parse(payload, input_type=input_type))
+    return _filter_runs(runs, session, since, until)
+
+
+def _resolve_files(inputs: str | Path | list[str | Path] | None) -> list[Path]:
+    """Expand inputs (paths/globs/dirs/lists) into a deduped, sorted file list."""
+    if inputs is None:
+        return []
+    items = inputs if isinstance(inputs, list) else [inputs]
+    seen: dict[str, Path] = {}
+    for item in items:
+        for path in _expand_one(item):
+            seen[str(path.resolve())] = path
+    return sorted(seen.values(), key=lambda p: str(p))
+
+
+def _expand_one(item: str | Path) -> list[Path]:
+    """Expand a single input into its matching JSON file paths."""
+    path = Path(item)
+    if path.is_dir():
+        return sorted(path.glob("*.json"))
+    matches = glob.glob(str(item))
+    if matches:
+        return [Path(m) for m in matches if Path(m).is_file()]
+    return [path] if path.is_file() else []
+
+
+def _filter_runs(
+    runs: list[AgentRun],
+    session: str | None,
+    since: str | datetime | None,
+    until: str | datetime | None,
+) -> list[AgentRun]:
+    """Apply session and time-window filters to a list of runs."""
+    lower = _coerce_dt(since)
+    upper = _coerce_dt(until)
+    result = runs
+    if session is not None:
+        result = [run for run in result if _matches_session(run, session)]
+    if lower is not None or upper is not None:
+        result = [run for run in result if _within_window(run, lower, upper)]
+    return result
+
+
+def _matches_session(run: AgentRun, session: str) -> bool:
+    """Whether a run belongs to the given session (best-effort by run id)."""
+    return run.run_id == session or session in run.run_id
+
+
+def _within_window(run: AgentRun, lower: datetime | None, upper: datetime | None) -> bool:
+    """Whether a run's start time falls within ``[lower, upper]``."""
+    start = run.start_time
+    if start is None:
+        return False
+    if lower is not None and start < lower:
+        return False
+    return not (upper is not None and start > upper)
+
+
+def _coerce_dt(value: str | datetime | None) -> datetime | None:
+    """Coerce an ISO date/datetime string (or datetime) to tz-aware UTC."""
+    if value is None:
+        return None
+    parsed = value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
 def _resolve_config(config: ReportConfig | str | Path | None) -> ReportConfig:
     """Coerce the ``config`` argument into a :class:`ReportConfig`."""
     if isinstance(config, ReportConfig):
@@ -128,6 +269,13 @@ def _write_outputs(
     written: list[Path] = []
     for fmt in formats:
         path = out / f"report{_EXTENSIONS.get(fmt, '.' + fmt)}"
-        path.write_text(render(report, config, fmt), encoding="utf-8")
+        path.write_text(_render_format(report, config, fmt), encoding="utf-8")
         written.append(path)
     return written
+
+
+def _render_format(report: Report, config: ReportConfig, fmt: str) -> str:
+    """Render a report to a single output format's text content."""
+    if fmt == "json":
+        return json.dumps(serialize_report(report, config), indent=2)
+    return render(report, config, fmt)

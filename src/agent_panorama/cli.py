@@ -9,6 +9,7 @@ import click
 from . import __version__
 from .config import ReportConfig, load_config
 from .core import generate_report
+from .models import Report
 
 
 @click.group()
@@ -30,10 +31,12 @@ def _load_dotenv() -> None:
 @cli.command()
 @click.option(
     "--input",
-    "input_path",
+    "inputs",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, path_type=Path),
-    help="Path to the Langfuse/LangSmith JSON trace export.",
+    multiple=True,
+    type=str,
+    help="Path, glob, or directory of Langfuse/LangSmith JSON exports. "
+    "Repeatable; globs and directories are expanded (validated at load).",
 )
 @click.option(
     "--output",
@@ -45,9 +48,9 @@ def _load_dotenv() -> None:
 @click.option(
     "--format",
     "formats",
-    type=click.Choice(["md", "html", "both"]),
+    type=click.Choice(["md", "html", "json", "both"]),
     default="both",
-    help="Output format(s) to write (default: both).",
+    help="Output format(s) to write; 'both' = md+html (default: both).",
 )
 @click.option(
     "--input-type",
@@ -83,8 +86,23 @@ def _load_dotenv() -> None:
     help="LangChain model id for --summarize, e.g. 'google_genai:gemini-2.5-flash-lite' "
     "or 'openai:gpt-5-nano' (default: google_genai:gemini-2.5-flash-lite).",
 )
+@click.option(
+    "--session",
+    default=None,
+    help="Keep only runs matching this session id.",
+)
+@click.option(
+    "--since",
+    default=None,
+    help="Keep only runs starting at/after this ISO date or datetime (UTC).",
+)
+@click.option(
+    "--until",
+    default=None,
+    help="Keep only runs starting at/before this ISO date or datetime (UTC).",
+)
 def generate(
-    input_path: Path,
+    inputs: tuple[str, ...],
     output_dir: Path,
     formats: str,
     input_type: str,
@@ -92,18 +110,27 @@ def generate(
     detail: str,
     summarize: bool,
     summarize_model: str | None,
+    session: str | None,
+    since: str | None,
+    until: str | None,
 ) -> None:
-    """Generate a report from a trace export."""
+    """Generate a report from one or more trace exports."""
     selected = ["md", "html"] if formats == "both" else [formats]
-    report = generate_report(
-        input_path=input_path,
-        output_dir=output_dir,
-        formats=selected,
-        input_type=input_type,
-        config=_config_with_model(config_path, summarize_model),
-        detail=detail,
-        summarize=summarize,
-    )
+    try:
+        report = generate_report(
+            inputs=list(inputs),
+            output_dir=output_dir,
+            formats=selected,
+            input_type=input_type,
+            config=_config_with_model(config_path, summarize_model),
+            detail=detail,
+            summarize=summarize,
+            session=session,
+            since=since,
+            until=until,
+        )
+    except ValueError as error:
+        raise click.ClickException(str(error)) from error
     _print_summary(report, output_dir, selected, summarize)
 
 
@@ -118,12 +145,15 @@ def _config_with_model(
     return config
 
 
-def _print_summary(report, output_dir: Path, formats: list[str], summarize: bool) -> None:
+def _print_summary(report: Report, output_dir: Path, formats: list[str], summarize: bool) -> None:
     """Print a short confirmation summary of what was generated."""
     click.secho("✓ Agent Activity Report generated", fg="green", bold=True)
     click.echo(f"  Runs:    {report.total_runs}")
+    click.echo(f"  Agents:  {len(report.rollups)}")
     click.echo(f"  Steps:   {report.total_steps}")
     click.echo(f"  Tokens:  {report.total_tokens:,}")
+    if report.total_cost_usd is not None:
+        click.echo(f"  Cost:    ${report.total_cost_usd:.4f}")
     for fmt in formats:
         click.echo(f"  Wrote:   {output_dir / ('report.' + fmt)}")
     if summarize:

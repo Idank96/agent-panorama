@@ -404,10 +404,8 @@ def _error_message(obs: dict) -> str | None:
 
 def _backfill_times(run: AgentRun, observations: list[dict]) -> None:
     """Fill in run start/end from observation times when trace times are absent."""
-    starts = [parse_time(o.get("startTime")) for o in observations]
-    ends = [parse_time(o.get("endTime")) for o in observations]
-    starts = [t for t in starts if t]
-    ends = [t for t in ends if t]
+    starts = [t for t in (parse_time(o.get("startTime")) for o in observations) if t]
+    ends = [t for t in (parse_time(o.get("endTime")) for o in observations) if t]
     if run.start_time is None and starts:
         run.start_time = min(starts)
     if run.end_time is None and ends:

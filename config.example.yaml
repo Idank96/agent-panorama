@@ -33,3 +33,25 @@ detail: standard
 # Model used by --summarize to phrase minimal results (opt-in; needs the matching
 # provider extra installed and its API key set). Overridden by --summarize-model.
 summarize_model: "google_genai:gemini-2.5-flash-lite"
+
+# Opt-in USD cost estimation. Keys are matched as substrings of each model name
+# (longest match wins); prices are USD per 1,000,000 tokens. Omit this block
+# entirely to keep cost out of the report (tokens remain the primary metric).
+#
+# Commented template (copy and adjust to your provider's current pricing):
+# model_prices:
+#   "<model-name-substring>":
+#     input: <USD per 1M input tokens>
+#     output: <USD per 1M output tokens>
+#
+# Live example covering the bundled sample traces:
+model_prices:
+  gpt-4o-mini:
+    input: 0.15
+    output: 0.60
+  gpt-4o:
+    input: 2.50
+    output: 10.00
+  claude-3-5-sonnet:
+    input: 3.00
+    output: 15.00

@@ -1,0 +1,250 @@
+[
+  {
+    "id": "biz-001",
+    "name": "sales-agent",
+    "timestamp": "2026-05-31T13:42:00.000Z",
+    "input": {"task": "Prepare and send the deal proposal to customer ABC-123."},
+    "output": {"content": "Prepared the $48,000 deal proposal for customer ABC-123 from the approved template and emailed it for signature."},
+    "observations": [
+      {
+        "id": "biz-001-a",
+        "type": "GENERATION",
+        "name": "draft-proposal",
+        "startTime": "2026-05-31T13:42:01.000Z",
+        "endTime": "2026-05-31T13:42:03.200Z",
+        "model": "gpt-4o",
+        "usage": {"input": 1400, "output": 260, "unit": "TOKENS"},
+        "level": "DEFAULT",
+        "output": {"tool_calls": [{"function": {"name": "create_proposal", "arguments": "{\"customer\": \"ABC-123\", \"amount_usd\": 48000}"}}]}
+      },
+      {
+        "id": "biz-001-b",
+        "type": "SPAN",
+        "name": "create_proposal",
+        "startTime": "2026-05-31T13:42:03.300Z",
+        "endTime": "2026-05-31T13:42:04.000Z",
+        "input": {"customer": "ABC-123", "amount_usd": 48000, "template": "enterprise-v3"},
+        "output": {"doc_id": "prop-7741"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-001-c",
+        "type": "SPAN",
+        "name": "send_email",
+        "startTime": "2026-05-31T13:42:04.100Z",
+        "endTime": "2026-05-31T13:42:04.600Z",
+        "input": {"to": "contact@abc-123.example", "subject": "Your proposal from Acme", "attach": "prop-7741"},
+        "output": {"sent": true},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-001-d",
+        "type": "GENERATION",
+        "name": "final-answer",
+        "startTime": "2026-05-31T13:42:04.700Z",
+        "endTime": "2026-05-31T13:42:05.600Z",
+        "model": "gpt-4o",
+        "usage": {"input": 900, "output": 90, "unit": "TOKENS"},
+        "level": "DEFAULT",
+        "output": {"content": "The $48,000 proposal for customer ABC-123 was prepared and emailed for signature."}
+      }
+    ]
+  },
+  {
+    "id": "biz-002",
+    "name": "inbox-agent",
+    "timestamp": "2026-05-31T13:20:00.000Z",
+    "input": {"task": "Triage my inbox and summarize anything important."},
+    "output": {"content": "Scanned 38 new emails, identified 1 high-priority message, and sent you a short summary."},
+    "observations": [
+      {
+        "id": "biz-002-a",
+        "type": "GENERATION",
+        "name": "plan",
+        "startTime": "2026-05-31T13:20:01.000Z",
+        "endTime": "2026-05-31T13:20:02.000Z",
+        "model": "gpt-4o-mini",
+        "usage": {"input": 600, "output": 80, "unit": "TOKENS"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-002-b",
+        "type": "SPAN",
+        "name": "scan_inbox",
+        "startTime": "2026-05-31T13:20:02.100Z",
+        "endTime": "2026-05-31T13:20:03.500Z",
+        "input": {"folder": "inbox", "unread_only": true},
+        "output": {"scanned": 38, "flagged": 1},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-002-c",
+        "type": "SPAN",
+        "name": "send_email",
+        "startTime": "2026-05-31T13:20:03.600Z",
+        "endTime": "2026-05-31T13:20:04.100Z",
+        "input": {"to": "user", "subject": "Inbox summary — 1 important item"},
+        "output": {"sent": true},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-002-d",
+        "type": "GENERATION",
+        "name": "final-answer",
+        "startTime": "2026-05-31T13:20:04.200Z",
+        "endTime": "2026-05-31T13:20:05.000Z",
+        "model": "gpt-4o-mini",
+        "usage": {"input": 700, "output": 110, "unit": "TOKENS"},
+        "level": "DEFAULT",
+        "output": {"content": "Reviewed 38 unread emails, flagged 1 as important, and emailed you a summary."}
+      }
+    ]
+  },
+  {
+    "id": "biz-003",
+    "name": "finance-agent",
+    "timestamp": "2026-05-31T12:30:00.000Z",
+    "input": {"task": "Put together the Q2 expense report and send it to finance."},
+    "output": {"content": "Compiled the Q2 expense report from the synced ledger and emailed it to the finance team."},
+    "observations": [
+      {
+        "id": "biz-003-a",
+        "type": "GENERATION",
+        "name": "compile",
+        "startTime": "2026-05-31T12:30:01.000Z",
+        "endTime": "2026-05-31T12:30:04.000Z",
+        "model": "claude-3-5-sonnet-20241022",
+        "usage": {"input": 2100, "output": 320, "unit": "TOKENS"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-003-b",
+        "type": "SPAN",
+        "name": "compile_report",
+        "startTime": "2026-05-31T12:30:04.100Z",
+        "endTime": "2026-05-31T12:30:05.200Z",
+        "input": {"period": "Q2-2026", "source": "ledger"},
+        "output": {"report_id": "exp-q2-26", "line_items": 214},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-003-c",
+        "type": "SPAN",
+        "name": "send_email",
+        "startTime": "2026-05-31T12:30:05.300Z",
+        "endTime": "2026-05-31T12:30:05.800Z",
+        "input": {"to": "finance@acme.example", "subject": "Q2 expense report", "attach": "exp-q2-26"},
+        "output": {"sent": true},
+        "level": "DEFAULT"
+      }
+    ]
+  },
+  {
+    "id": "biz-004",
+    "name": "recruiting-agent",
+    "timestamp": "2026-05-31T11:15:00.000Z",
+    "input": {"task": "Screen candidate #4821 for the staff engineer role."},
+    "output": {"content": "Candidate #4821 scored inside the ambiguous review band, so the application was flagged for human review before advancing."},
+    "observations": [
+      {
+        "id": "biz-004-a",
+        "type": "GENERATION",
+        "name": "score-candidate",
+        "startTime": "2026-05-31T11:15:01.000Z",
+        "endTime": "2026-05-31T11:15:03.500Z",
+        "model": "claude-3-5-sonnet-20241022",
+        "usage": {"input": 1800, "output": 240, "unit": "TOKENS"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-004-b",
+        "type": "SPAN",
+        "name": "score_resume",
+        "startTime": "2026-05-31T11:15:03.600Z",
+        "endTime": "2026-05-31T11:15:04.000Z",
+        "input": {"candidate_id": "4821", "role": "staff-engineer"},
+        "output": {"score": 0.62, "band": "review"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-004-c",
+        "type": "SPAN",
+        "name": "human_handoff",
+        "startTime": "2026-05-31T11:15:04.100Z",
+        "endTime": "2026-05-31T11:15:04.400Z",
+        "input": {"reason": "ambiguous score band", "queue": "recruiting"},
+        "output": {"ticket_id": "rev-9012"},
+        "level": "DEFAULT"
+      }
+    ]
+  },
+  {
+    "id": "biz-005",
+    "name": "ops-agent",
+    "timestamp": "2026-05-31T10:05:00.000Z",
+    "input": {"task": "Replenish part SKU-22 — stock is below the reorder point."},
+    "output": {"content": "Placed a replenishment order for 500 units of part SKU-22 with the preferred supplier."},
+    "observations": [
+      {
+        "id": "biz-005-a",
+        "type": "GENERATION",
+        "name": "plan-reorder",
+        "startTime": "2026-05-31T10:05:01.000Z",
+        "endTime": "2026-05-31T10:05:02.300Z",
+        "model": "gpt-4o-mini",
+        "usage": {"input": 550, "output": 90, "unit": "TOKENS"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-005-b",
+        "type": "SPAN",
+        "name": "place_order",
+        "startTime": "2026-05-31T10:05:02.400Z",
+        "endTime": "2026-05-31T10:05:03.100Z",
+        "input": {"sku": "SKU-22", "quantity": 500, "supplier": "preferred"},
+        "output": {"po_id": "po-5512"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-005-c",
+        "type": "GENERATION",
+        "name": "final-answer",
+        "startTime": "2026-05-31T10:05:03.200Z",
+        "endTime": "2026-05-31T10:05:04.000Z",
+        "model": "gpt-4o-mini",
+        "usage": {"input": 480, "output": 70, "unit": "TOKENS"},
+        "level": "DEFAULT",
+        "output": {"content": "Reordered 500 units of SKU-22 from the preferred supplier."}
+      }
+    ]
+  },
+  {
+    "id": "biz-006",
+    "name": "support-agent",
+    "timestamp": "2026-05-31T09:30:00.000Z",
+    "input": {"task": "Issue a refund for order ORD-5567."},
+    "observations": [
+      {
+        "id": "biz-006-a",
+        "type": "GENERATION",
+        "name": "plan-refund",
+        "startTime": "2026-05-31T09:30:01.000Z",
+        "endTime": "2026-05-31T09:30:02.000Z",
+        "model": "gpt-4o-mini",
+        "usage": {"input": 520, "output": 60, "unit": "TOKENS"},
+        "level": "DEFAULT"
+      },
+      {
+        "id": "biz-006-b",
+        "type": "SPAN",
+        "name": "process_refund",
+        "startTime": "2026-05-31T09:30:02.100Z",
+        "endTime": "2026-05-31T09:30:05.300Z",
+        "input": {"order_id": "ORD-5567", "amount_usd": 129.00},
+        "output": {"error": "gateway_declined"},
+        "level": "ERROR",
+        "statusMessage": "Payment gateway rejected the refund for ORD-5567 (code: DECLINED)"
+      }
+    ]
+  }
+]

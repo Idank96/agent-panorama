@@ -45,6 +45,32 @@ decouples the stages. Understanding `models.AgentRun` first makes everything els
 Separation of concerns is deliberate: parsers know vendor formats, analysis knows
 business meaning, templates know presentation. Keep that boundary when extending.
 
+## v0.2 — the fleet view (many traces, one report)
+
+v0.2 aggregates *many* traces into one fleet-level report and exposes it as JSON for a
+dashboard:
+
+- **Multi-input loading** (`core.load_runs`): accepts a single path, a glob, a directory,
+  or a list of any of those; expands + dedupes, parses each via `parsers.parse`, then
+  filters by `session` (run id match) and a `[since, until]` time window over
+  `start_time`. `build_report_from_inputs` / `generate_report(inputs=...)` wrap it
+  (the old single-path `generate_report` call still works).
+- **Cross-agent feed + rollups** (`analysis._build_feed`, `_build_rollups`): `Report.feed`
+  is one newest-first `FeedItem` per run (agent, action text, outcome, tokens, cost, facts,
+  anomalies); `Report.rollups` is one `AgentRollup` per agent (`agent_key` = `slugify(name)`)
+  with success/escalation/failure/retry rates and token/cost totals. Both live in
+  `models.py` alongside the existing `DecisionLogEntry`.
+- **JSON export** (`export.serialize_report` → `feed.json`/`report.json`): the stable
+  contract the React dashboard in `frontend/` consumes — `generated_at`, `time_range`,
+  `totals` (runs/steps/tokens/cost), `feed`, `rollups`, `decision_log`. Written when the
+  `"json"` format is requested.
+- **Shared text helpers** (`text.py`): `condense` (leading-sentence reducer, used by both
+  the feed and `render`) and `slugify` (the `agent_key`). Factored out of `render` to keep
+  feed and rendering DRY.
+- **`frontend/`** (top-level, outside the PyPI package): a Vite + React + TypeScript
+  dashboard that reads `feed.json` (falls back to bundled demo data). Backend and frontend
+  are two clean dirs; the package is unaffected.
+
 ## The hard part: real-world Langfuse parsing
 
 `parsers/langfuse.py` and `parsers/common.py` carry the non-obvious knowledge, learned
@@ -74,8 +100,12 @@ To add a new input format: write `parse(payload) -> list[AgentRun]` and register
 
 ## Conventions and constraints specific to this repo
 
-- **Dollar-cost estimation is intentionally out of scope.** The report tracks tokens, not
-  USD. Don't reintroduce pricing/cost.
+- **Dollar-cost estimation is opt-in (as of v0.2).** Tokens remain the primary metric and
+  the zero-config default (no prices ⇒ `cost_usd` stays `None` everywhere). Cost is enabled
+  only by supplying a `model_prices` table in the YAML config (`{ "<model-substring>":
+  {input, output} }`, USD per 1M tokens, longest substring match wins). `config.price_for`
+  resolves it; `analysis._estimate_cost` sums it per run. This deliberately reverses the
+  earlier "USD out of scope" rule — never hardcode volatile prices in code.
 - **Example data must stay obviously generic** (`web_search`, `get_weather`, `send_email`,
   `research-assistant`). Never use names that could read as a real company's internal
   tooling — the published repo's history was already scrubbed once for this. Real trace
