@@ -1,4 +1,4 @@
-import type { AgentMeta, Decision, FeedEntry, Status, Tweaks } from "../types";
+import type { AgentMeta, Decision, FeedEntry, Status } from "../types";
 import { STATUS } from "../data/agents";
 import {
   IconCalendar,
@@ -14,22 +14,13 @@ export function StatusPill({ status }: { status: Status }) {
   return <span className={"ap-pill ap-pill-" + meta.kind}>{meta.label}</span>;
 }
 
-export function AgentBadge({
-  agent,
-  accentKey,
-}: {
-  agent: AgentMeta;
-  accentKey: Tweaks["accent"];
-}) {
+export function AgentBadge({ agent }: { agent: AgentMeta }) {
   return (
     <span
       className="ap-badge"
-      style={{ color: agent.accent[accentKey], background: agent.tint[accentKey] }}
+      style={{ color: agent.accent, background: agent.tint }}
     >
-      <span
-        className="ap-badge-mark"
-        style={{ background: agent.accent[accentKey] }}
-      >
+      <span className="ap-badge-mark" style={{ background: agent.accent }}>
         {agent.short}
       </span>
       {agent.name}
@@ -63,8 +54,6 @@ const effectiveStatus = (status: Status, decision?: Decision): Status =>
 interface FeedCardProps {
   entry: FeedEntry;
   agent: AgentMeta;
-  accentKey: Tweaks["accent"];
-  cardStyle: Tweaks["cardStyle"];
   selected: boolean;
   onSelect: (id: string) => void;
   decision?: Decision;
@@ -74,42 +63,23 @@ interface FeedCardProps {
 export function FeedCard({
   entry,
   agent,
-  accentKey,
-  cardStyle,
   selected,
   onSelect,
   decision,
   onDecision,
 }: FeedCardProps) {
-  const accent = agent.accent[accentKey];
-
   // Decision overrides the on-card status once the manager has acted.
   const effStatus = effectiveStatus(entry.status, decision);
 
-  const borderStyle =
-    cardStyle === "border"
-      ? { borderLeft: "3px solid " + accent }
-      : cardStyle === "rail"
-        ? {}
-        : { borderLeft: "1px solid var(--ap-border)" };
-
   return (
     <article
-      className={
-        "ap-card" +
-        (selected ? " is-selected" : "") +
-        (cardStyle === "rail" ? " has-rail" : "")
-      }
-      style={borderStyle}
+      className={"ap-card" + (selected ? " is-selected" : "")}
+      style={{ borderLeft: "1px solid var(--ap-border)" }}
       onClick={() => onSelect(entry.id)}
     >
-      {cardStyle === "rail" && (
-        <span className="ap-card-rail" style={{ background: accent }} />
-      )}
-
       <div className="ap-card-main">
         <div className="ap-card-top">
-          <AgentBadge agent={agent} accentKey={accentKey} />
+          <AgentBadge agent={agent} />
           <span className="ap-card-time">{entry.time}</span>
         </div>
 
@@ -162,8 +132,6 @@ export function FeedCard({
 interface FeedProps {
   entries: FeedEntry[];
   agents: Record<string, AgentMeta>;
-  accentKey: Tweaks["accent"];
-  cardStyle: Tweaks["cardStyle"];
   selectedId: string | null;
   onSelect: (id: string) => void;
   decisions: Record<string, Decision>;
@@ -177,8 +145,6 @@ interface FeedProps {
 export function Feed({
   entries,
   agents,
-  accentKey,
-  cardStyle,
   selectedId,
   onSelect,
   decisions,
@@ -230,8 +196,6 @@ export function Feed({
               key={entry.id}
               entry={entry}
               agent={agents[entry.agent]}
-              accentKey={accentKey}
-              cardStyle={cardStyle}
               selected={selectedId === entry.id}
               onSelect={onSelect}
               decision={decisions[entry.id]}

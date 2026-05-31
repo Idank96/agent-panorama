@@ -9,8 +9,8 @@ export interface AgentMeta {
   name: string;
   short: string;
   health: "green" | "amber" | "red";
-  accent: { calm: string; vivid: string };
-  tint: { calm: string; vivid: string };
+  accent: string;
+  tint: string;
 }
 
 export interface FeedEntry {
@@ -24,11 +24,4 @@ export interface FeedEntry {
   facts: [string, string][];
   tokens: { used: number; cost: string | null };
   policy?: { rule: string; detail: string };
-}
-
-export interface Tweaks {
-  accent: "calm" | "vivid";
-  density: "compact" | "comfortable";
-  cardStyle: "border" | "rail" | "minimal";
-  font: "system" | "helvetica" | "inter";
 }

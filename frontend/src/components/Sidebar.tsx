@@ -1,4 +1,4 @@
-import type { AgentMeta, Tweaks } from "../types";
+import type { AgentMeta } from "../types";
 import {
   IconActivity,
   IconAgents,
@@ -12,7 +12,6 @@ interface SidebarProps {
   nav: NavId;
   setNav: (id: NavId) => void;
   agents: Record<string, AgentMeta>;
-  accentKey: Tweaks["accent"];
   selectedAgent: string | null;
   setSelectedAgent: (id: string | null) => void;
 }
@@ -35,7 +34,6 @@ export function Sidebar({
   nav,
   setNav,
   agents,
-  accentKey,
   selectedAgent,
   setSelectedAgent,
 }: SidebarProps) {
@@ -93,7 +91,7 @@ export function Sidebar({
               <span className="ap-agent-name">{a.name}</span>
               <span
                 className="ap-agent-accent"
-                style={{ background: a.accent[accentKey] }}
+                style={{ background: a.accent }}
               />
             </button>
           ))}

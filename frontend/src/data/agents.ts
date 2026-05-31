@@ -1,39 +1,38 @@
 import type { AgentMeta, Status } from "../types";
 
-// Agent registry. Accent colors are calm/desaturated by default; a "vivid"
-// variant is supplied for the Tweaks accent-intensity option.
+// Agent registry. Accent colors are calm/desaturated.
 export const AGENTS: Record<string, AgentMeta> = {
   scheduling: {
     id: "scheduling",
     name: "Scheduling Agent",
     short: "SC",
     health: "green",
-    accent: { calm: "#4b6b9a", vivid: "#2f5fbf" },
-    tint: { calm: "#eef2f8", vivid: "#e7eefc" },
+    accent: "#4b6b9a",
+    tint: "#eef2f8",
   },
   hr: {
     id: "hr",
     name: "HR Agent",
     short: "HR",
     health: "green",
-    accent: { calm: "#4f8a6e", vivid: "#1f9a63" },
-    tint: { calm: "#eef5f1", vivid: "#e6f5ed" },
+    accent: "#4f8a6e",
+    tint: "#eef5f1",
   },
   funding: {
     id: "funding",
     name: "Funding Agent",
     short: "FN",
     health: "amber",
-    accent: { calm: "#9c7d3e", vivid: "#c08a1e" },
-    tint: { calm: "#f6f1e7", vivid: "#fbf2dd" },
+    accent: "#9c7d3e",
+    tint: "#f6f1e7",
   },
   ops: {
     id: "ops",
     name: "Ops Agent",
     short: "OP",
     health: "red",
-    accent: { calm: "#a35d52", vivid: "#c64b3c" },
-    tint: { calm: "#f7eeec", vivid: "#fceae6" },
+    accent: "#a35d52",
+    tint: "#f7eeec",
   },
 };
 
@@ -43,16 +42,16 @@ export const STATUS: Record<Status, { label: string; kind: Status }> = {
   failed: { label: "Failed", kind: "failed" },
 };
 
-// Deterministic calm/vivid color pairs for agent keys not in the registry
+// Deterministic calm color pairs for agent keys not in the registry
 // (e.g. the backend's "research-assistant"). Picked by hashing the key so a
 // given agent always gets the same color across renders.
-const PALETTE: { accent: AgentMeta["accent"]; tint: AgentMeta["tint"] }[] = [
-  { accent: { calm: "#4b6b9a", vivid: "#2f5fbf" }, tint: { calm: "#eef2f8", vivid: "#e7eefc" } },
-  { accent: { calm: "#4f8a6e", vivid: "#1f9a63" }, tint: { calm: "#eef5f1", vivid: "#e6f5ed" } },
-  { accent: { calm: "#9c7d3e", vivid: "#c08a1e" }, tint: { calm: "#f6f1e7", vivid: "#fbf2dd" } },
-  { accent: { calm: "#a35d52", vivid: "#c64b3c" }, tint: { calm: "#f7eeec", vivid: "#fceae6" } },
-  { accent: { calm: "#6a5b9a", vivid: "#7a52cf" }, tint: { calm: "#f1eff7", vivid: "#efe6fc" } },
-  { accent: { calm: "#3f8f93", vivid: "#1f9aa0" }, tint: { calm: "#eaf4f4", vivid: "#e0f5f6" } },
+const PALETTE: { accent: string; tint: string }[] = [
+  { accent: "#4b6b9a", tint: "#eef2f8" },
+  { accent: "#4f8a6e", tint: "#eef5f1" },
+  { accent: "#9c7d3e", tint: "#f6f1e7" },
+  { accent: "#a35d52", tint: "#f7eeec" },
+  { accent: "#6a5b9a", tint: "#f1eff7" },
+  { accent: "#3f8f93", tint: "#eaf4f4" },
 ];
 
 const hashKey = (key: string): number => {

@@ -1,4 +1,4 @@
-import type { AgentMeta, Decision, FeedEntry, Status, Tweaks } from "../types";
+import type { AgentMeta, Decision, FeedEntry, Status } from "../types";
 import { STATUS } from "../data/agents";
 import {
   IconAlert,
@@ -12,7 +12,6 @@ import {
 interface DetailPanelProps {
   entry: FeedEntry | null;
   agent: AgentMeta | null;
-  accentKey: Tweaks["accent"];
   decision?: Decision;
   onDecision: (id: string, decision: Decision | null) => void;
 }
@@ -28,7 +27,6 @@ const effectiveStatus = (status: Status, decision?: Decision): Status =>
 export function DetailPanel({
   entry,
   agent,
-  accentKey,
   decision,
   onDecision,
 }: DetailPanelProps) {
@@ -48,13 +46,13 @@ export function DetailPanel({
     );
   }
 
-  const accent = agent.accent[accentKey];
+  const accent = agent.accent;
   const effStatus = effectiveStatus(entry.status, decision);
   const sMeta = STATUS[effStatus];
 
   return (
     <aside className="ap-detail" key={entry.id}>
-      <div className="ap-detail-hd" style={{ background: agent.tint[accentKey] }}>
+      <div className="ap-detail-hd" style={{ background: agent.tint }}>
         <div className="ap-detail-hd-row">
           <span
             className="ap-badge"

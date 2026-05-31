@@ -1,31 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Decision, Tweaks } from "./types";
+import type { Decision } from "./types";
 import { AGENTS } from "./data/agents";
 import { demoFeed } from "./data/demoFeed";
 import { loadFeed, type LoadedFeed } from "./lib/loadFeed";
 import { Sidebar, type NavId } from "./components/Sidebar";
 import { Feed } from "./components/Feed";
 import { DetailPanel } from "./components/DetailPanel";
-import {
-  TweakRadio,
-  TweakSection,
-  TweakSelect,
-  TweaksPanel,
-} from "./components/TweaksPanel";
-
-const TWEAK_DEFAULTS: Tweaks = {
-  accent: "calm",
-  density: "comfortable",
-  cardStyle: "border",
-  font: "system",
-};
-
-const FONT_STACKS: Record<Tweaks["font"], string> = {
-  system:
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Helvetica Neue", Arial, sans-serif',
-  helvetica: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-  inter: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
-};
 
 const NAV_LABELS: Record<Exclude<NavId, "activity">, string> = {
   agents: "Agents",
@@ -40,10 +20,6 @@ const firstPendingId = (data: LoadedFeed): string | null => {
 };
 
 export default function App() {
-  const [t, setT] = useState<Tweaks>(TWEAK_DEFAULTS);
-  const setTweak = <K extends keyof Tweaks>(key: K, value: Tweaks[K]) =>
-    setT((prev) => ({ ...prev, [key]: value }));
-
   const [nav, setNav] = useState<NavId>("activity");
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -71,16 +47,6 @@ export default function App() {
       active = false;
     };
   }, []);
-
-  const accentKey = t.accent === "vivid" ? "vivid" : "calm";
-
-  // Apply font globally.
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--ap-font",
-      FONT_STACKS[t.font] || FONT_STACKS.system,
-    );
-  }, [t.font]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -115,12 +81,11 @@ export default function App() {
     : null;
 
   return (
-    <div className="ap-app" data-density={t.density}>
+    <div className="ap-app">
       <Sidebar
         nav={nav}
         setNav={setNav}
         agents={data.agents}
-        accentKey={accentKey}
         selectedAgent={selectedAgent}
         setSelectedAgent={setSelectedAgent}
       />
@@ -129,8 +94,6 @@ export default function App() {
         <Feed
           entries={filtered}
           agents={data.agents}
-          accentKey={accentKey}
-          cardStyle={t.cardStyle}
           selectedId={selectedId}
           onSelect={setSelectedId}
           decisions={decisions}
@@ -164,54 +127,9 @@ export default function App() {
       <DetailPanel
         entry={nav === "activity" ? selectedEntry : null}
         agent={selectedEntry ? (data.agents[selectedEntry.agent] ?? null) : null}
-        accentKey={accentKey}
         decision={selectedEntry ? decisions[selectedEntry.id] : undefined}
         onDecision={onDecision}
       />
-
-      <TweaksPanel title="Tweaks">
-        <TweakSection label="Appearance" />
-        <TweakRadio
-          label="Accent intensity"
-          value={t.accent}
-          options={[
-            { value: "calm", label: "Calm" },
-            { value: "vivid", label: "Vivid" },
-          ]}
-          onChange={(v) => setTweak("accent", v as Tweaks["accent"])}
-        />
-        <TweakRadio
-          label="Feed density"
-          value={t.density}
-          options={[
-            { value: "compact", label: "Compact" },
-            { value: "comfortable", label: "Comfortable" },
-          ]}
-          onChange={(v) => setTweak("density", v as Tweaks["density"])}
-        />
-        <TweakSection label="Card treatment" />
-        <TweakRadio
-          label="Style"
-          value={t.cardStyle}
-          options={[
-            { value: "border", label: "Border" },
-            { value: "rail", label: "Rail" },
-            { value: "minimal", label: "Plain" },
-          ]}
-          onChange={(v) => setTweak("cardStyle", v as Tweaks["cardStyle"])}
-        />
-        <TweakSection label="Typography" />
-        <TweakSelect
-          label="Font"
-          value={t.font}
-          options={[
-            { value: "system", label: "System UI" },
-            { value: "helvetica", label: "Helvetica Neue" },
-            { value: "inter", label: "IBM Plex Sans" },
-          ]}
-          onChange={(v) => setTweak("font", v as Tweaks["font"])}
-        />
-      </TweaksPanel>
     </div>
   );
 }

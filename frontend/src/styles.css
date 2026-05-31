@@ -20,15 +20,12 @@
   --ap-shadow: 0 1px 2px rgba(33,31,27,.04), 0 1px 1px rgba(33,31,27,.03);
   --ap-shadow-md: 0 1px 3px rgba(33,31,27,.06), 0 4px 12px rgba(33,31,27,.06);
 
-  /* density-driven (overridden by [data-density]) */
-  --card-py: 11px;
-  --card-px: 14px;
-  --card-gap: 8px;
-  --feed-gap: 7px;
-  --action-size: 14.5px;
-}
-[data-density="comfortable"] {
-  --card-py: 16px; --card-px: 18px; --card-gap: 11px; --feed-gap: 11px; --action-size: 15.5px;
+  /* comfortable feed density */
+  --card-py: 16px;
+  --card-px: 18px;
+  --card-gap: 11px;
+  --feed-gap: 11px;
+  --action-size: 15.5px;
 }
 
 * { box-sizing: border-box; }
@@ -183,8 +180,6 @@ body {
 }
 .ap-card:hover { box-shadow: var(--ap-shadow-md); border-color: var(--ap-border-strong); }
 .ap-card.is-selected { border-color: #4b6b9a; box-shadow: 0 0 0 1px #4b6b9a, var(--ap-shadow-md); }
-.ap-card.has-rail { padding-left: 3px; }
-.ap-card-rail { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
 
 .ap-card-main { padding: var(--card-py) var(--card-px); display: flex; flex-direction: column; gap: var(--card-gap); }
 .ap-card-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

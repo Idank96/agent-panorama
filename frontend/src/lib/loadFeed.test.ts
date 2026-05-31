@@ -99,7 +99,7 @@ describe("mapReport", () => {
     expect(entries).toHaveLength(2);
     expect(Object.keys(agents)).toEqual(["research-assistant"]);
     // Unknown key still resolves to a stable AgentMeta.
-    expect(agents["research-assistant"].accent.calm).toMatch(/^#/);
+    expect(agents["research-assistant"].accent).toMatch(/^#/);
   });
 });
 
