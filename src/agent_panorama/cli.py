@@ -160,5 +160,56 @@ def _print_summary(report: Report, output_dir: Path, formats: list[str], summari
         click.echo(f"  LLM log: {output_dir / 'llm_calls.log'}")
 
 
+@cli.command()
+@click.option("--port", default=8321, type=int, help="Port to listen on (default: 8321).")
+@click.option("--host", default="127.0.0.1", help="Interface to bind (default: 127.0.0.1).")
+@click.option(
+    "--config",
+    "config_path",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    help="Optional YAML config mapping tool names and thresholds.",
+)
+@click.option(
+    "--max-runs",
+    default=None,
+    type=int,
+    help="Keep at most this many runs in memory (oldest trimmed first).",
+)
+@click.option(
+    "--open",
+    "open_browser",
+    is_flag=True,
+    default=False,
+    help="Open the dashboard in the default browser on start.",
+)
+def serve(
+    port: int,
+    host: str,
+    config_path: Path | None,
+    max_runs: int | None,
+    open_browser: bool,
+) -> None:
+    """Run the live dashboard server (requires the 'live' extra)."""
+    try:
+        from .live.server import serve as run_server
+    except ImportError as error:
+        raise click.ClickException(
+            "Live mode needs extra dependencies. Install with: pip install 'agent-panorama[live]'"
+        ) from error
+    click.secho(f"agent-panorama live dashboard on http://{host}:{port}", fg="green", bold=True)
+    click.echo("  Stream runs from your app with PanoramaCallbackHandler (Ctrl+C to stop).")
+    try:
+        run_server(
+            port=port,
+            host=host,
+            config_path=config_path,
+            max_runs=max_runs,
+            open_browser=open_browser,
+        )
+    except OSError as error:
+        raise click.ClickException(str(error)) from error
+
+
 if __name__ == "__main__":
     cli()

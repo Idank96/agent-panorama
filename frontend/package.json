@@ -6,7 +6,7 @@
   "description": "Agent Panorama — manager-facing fleet activity dashboard",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && touch ../src/agent_panorama/static/.gitkeep",
     "preview": "vite preview",
     "test": "vitest run",
     "sync:feed": "cp ../report/report.json public/feed.json"

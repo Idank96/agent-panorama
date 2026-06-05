@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agent-panorama"
-version = "0.2.0"
+version = "0.3.0"
 description = "Turn Langfuse/LangSmith agent traces into human-readable Agent Activity Reports (Markdown + HTML)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -33,7 +33,14 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.10",
     "types-PyYAML>=6.0",
+    # Live-mode test dependencies (server, TestClient, real callback base class).
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "httpx>=0.27",
+    "langchain-core>=0.3",
 ]
+# Live dashboard server (`agent-panorama serve`).
+live = ["fastapi>=0.110", "uvicorn>=0.29"]
 # Optional LLM-backed result phrasing (--summarize). Install the provider you use.
 gemini = ["langchain>=0.3", "langchain-google-genai>=2.0"]
 openai = ["langchain>=0.3", "langchain-openai>=0.2"]
@@ -46,6 +53,12 @@ Issues = "https://github.com/Idank96/agent-panorama/issues"
 
 [project.scripts]
 agent-panorama = "agent_panorama.cli:cli"
+
+# The dashboard build output (frontend/ -> src/agent_panorama/static/) is
+# gitignored, so hatchling's VCS-based file selection would silently drop it
+# from wheels; declare it as a build artifact to keep it in.
+[tool.hatch.build]
+artifacts = ["src/agent_panorama/static/"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_panorama"]

@@ -1,0 +1,193 @@
+"""Live demo: a RAG tutoring agent over a textbook (retrieval-first style).
+
+Imitates the trace *shape* of a retrieval-augmented tutor:
+
+- **Simple question**: one semantic search returns cited chunks
+  (``[Source N, Page M]: ...``), then the model answers from them.
+- **Fallback retrieval chain**: semantic search finds nothing, the agent
+  narrows to the current section, then falls back to a raw page lookup
+  (a tool with "fallback" in its name flags the run as a fallback path).
+- **Recursion limit**: the agent burns its tool budget without converging
+  and fails with a recursion-limit error (failed run, several retrievals).
+- **Follow-up turn**: answered from conversation context, no retrieval at all.
+
+Usage (two terminals):
+
+    agent-panorama serve --open
+    python examples/live_demo_study_tutor.py
+"""
+
+from __future__ import annotations
+
+import sys
+import time
+import uuid
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from agent_panorama.live.serde import WIRE_VERSION, run_to_dict
+from agent_panorama.live.transport import post_run
+from agent_panorama.models import AgentRun, LLMCall, ToolCall
+
+ENDPOINT = "http://localhost:8321/api/runs"
+_BATCH = uuid.uuid4().hex[:8]
+
+TUTOR_MODEL = "claude-sonnet-4-5"
+
+
+def _tutor_call(
+    name: str, start: datetime, offset: int, tokens_in: int, tokens_out: int
+) -> LLMCall:
+    """One tutor model call at a relative offset within the run."""
+    return LLMCall(
+        name=name,
+        model=TUTOR_MODEL,
+        input_tokens=tokens_in,
+        output_tokens=tokens_out,
+        timestamp=start + timedelta(seconds=offset),
+        latency_ms=2200.0,
+    )
+
+
+def _simple_question_run(now: datetime) -> AgentRun:
+    """One retrieval, one cited answer."""
+    start = now - timedelta(minutes=7)
+    return AgentRun(
+        run_id=f"tutor-simple-{_BATCH}",
+        name="study-tutor",
+        input_text="Why does the moon have phases?",
+        output_text=(
+            "Guided the student through it: the moon's phases come from the changing "
+            "sun-moon-earth angle (cited pages 42 and 44)."
+        ),
+        start_time=start,
+        end_time=start + timedelta(seconds=9),
+        tool_calls=[
+            ToolCall(
+                name="search_textbook",
+                arguments={"query": "moon phases cause", "top_k": 10},
+                output="[Source 1, Page 42]: The lunar cycle... [Source 2, Page 44]: ...",
+                timestamp=start + timedelta(seconds=2),
+                latency_ms=1400.0,
+            )
+        ],
+        llm_calls=[
+            _tutor_call("choose_retrieval", start, 0, 2100, 80),
+            _tutor_call("answer_with_citations", start, 4, 2600, 720),
+        ],
+    )
+
+
+def _fallback_chain_run(now: datetime) -> AgentRun:
+    """Semantic search misses; the agent narrows scope, then dumps the raw page."""
+    start = now - timedelta(minutes=5)
+    return AgentRun(
+        run_id=f"tutor-fallback-{_BATCH}",
+        name="study-tutor",
+        input_text="What does the diagram on this page show? (page 87)",
+        output_text=(
+            "Found it via the raw page text: the diagram traces the water cycle "
+            "from evaporation to precipitation (page 87)."
+        ),
+        start_time=start,
+        end_time=start + timedelta(seconds=18),
+        tool_calls=[
+            ToolCall(
+                name="search_textbook",
+                arguments={"query": "diagram page 87", "top_k": 10},
+                output="No relevant content found.",
+                timestamp=start + timedelta(seconds=2),
+                latency_ms=1300.0,
+            ),
+            ToolCall(
+                name="search_section",
+                arguments={"query": "diagram", "page": 87},
+                output="No relevant content found.",
+                timestamp=start + timedelta(seconds=6),
+                latency_ms=1200.0,
+            ),
+            ToolCall(
+                name="fallback_page_lookup",
+                arguments={"page": 87, "pages": 2},
+                output="[Source 1, Page 87]: Figure 4.2 — the water cycle...",
+                timestamp=start + timedelta(seconds=10),
+                latency_ms=1600.0,
+            ),
+        ],
+        llm_calls=[
+            _tutor_call("choose_retrieval", start, 0, 2200, 70),
+            _tutor_call("retry_narrower", start, 4, 2400, 60),
+            _tutor_call("retry_raw_page", start, 8, 2500, 60),
+            _tutor_call("answer_with_citations", start, 12, 3100, 680),
+        ],
+    )
+
+
+def _recursion_limit_run(now: datetime) -> AgentRun:
+    """The tool budget runs out before the agent converges."""
+    start = now - timedelta(minutes=2, seconds=30)
+    searches = [
+        ToolCall(
+            name="search_textbook",
+            arguments={"query": query, "top_k": 10},
+            output="No relevant content found.",
+            timestamp=start + timedelta(seconds=2 + index * 4),
+            latency_ms=1300.0,
+        )
+        for index, query in enumerate(
+            ["chapter summary quiz answers", "end of chapter answers", "exercise solutions"]
+        )
+    ]
+    return AgentRun(
+        run_id=f"tutor-recursion-{_BATCH}",
+        name="study-tutor",
+        input_text="Give me all the answers to the chapter 5 quiz.",
+        output_text="",
+        start_time=start,
+        end_time=start + timedelta(seconds=20),
+        tool_calls=searches,
+        llm_calls=[
+            _tutor_call("choose_retrieval", start, 0, 2100, 70),
+            _tutor_call("retry_search", start, 6, 2300, 70),
+            _tutor_call("retry_search_again", start, 12, 2400, 70),
+        ],
+        error_messages=["recursion limit (4) reached before producing an answer"],
+    )
+
+
+def _follow_up_run(now: datetime) -> AgentRun:
+    """A follow-up answered from conversation context — no retrieval at all."""
+    start = now - timedelta(seconds=40)
+    return AgentRun(
+        run_id=f"tutor-followup-{_BATCH}",
+        name="study-tutor",
+        input_text="So is a full moon when the angle is 180 degrees?",
+        output_text=(
+            "Confirmed and nudged further: yes — and asked what that means for moonrise time."
+        ),
+        start_time=start,
+        end_time=start + timedelta(seconds=4),
+        llm_calls=[_tutor_call("answer_from_context", start, 0, 1900, 340)],
+    )
+
+
+def main() -> None:
+    """Stream the tutor's runs to the live server, one per second."""
+    now = datetime.now(timezone.utc)
+    runs = [
+        _simple_question_run(now),
+        _fallback_chain_run(now),
+        _recursion_limit_run(now),
+        _follow_up_run(now),
+    ]
+    for run in runs:
+        delivered = post_run(ENDPOINT, {"version": WIRE_VERSION, "run": run_to_dict(run)})
+        state = "delivered" if delivered else "FAILED (is `agent-panorama serve` running?)"
+        print(f"{run.run_id}: {state}")
+        time.sleep(1)
+
+
+if __name__ == "__main__":
+    main()

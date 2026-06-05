@@ -18,6 +18,10 @@ report.md
 report.html
 /report/
 
+# Dashboard build output (built from frontend/, bundled into wheels at release)
+src/agent_panorama/static/*
+!src/agent_panorama/static/.gitkeep
+
 # Real trace data dropped in for local validation (keep the instructions file)
 /traces/*
 !/traces/PUT_YOUR_TRACE_HERE.md
@@ -36,3 +40,4 @@ trace-*.json
 
 # Personal docs (not tracked)
 idan_docs/
+kog.md

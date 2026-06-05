@@ -109,21 +109,32 @@ export const mapReport = (
 
 const fallback = (): LoadedFeed => ({ entries: demoFeed, agents: AGENTS });
 
+/** Data sources in preference order: live server first, static export second. */
+const FEED_URLS = ["/api/report", "feed.json"];
+
+const fetchReport = async (url: string): Promise<BackendReport | null> => {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const report = (await res.json()) as BackendReport;
+    return report && Array.isArray(report.feed) ? report : null;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Load the fleet feed.
  *
- * Fetches `feed.json` (served from public/). On success maps the backend report
- * to typed entries and an agent registry. On ANY fetch/parse failure, falls back
- * to bundled demo data so the dashboard always renders.
+ * Tries the live server (`/api/report`) first, then the static `feed.json`
+ * export. On ANY fetch/parse failure, falls back to bundled demo data so the
+ * dashboard always renders. Pure given `now`, so pollers can re-map with a
+ * fresh timestamp to keep relative times current.
  */
-export const loadFeed = async (): Promise<LoadedFeed> => {
-  try {
-    const res = await fetch("feed.json");
-    if (!res.ok) return fallback();
-    const report = (await res.json()) as BackendReport;
-    if (!report || !Array.isArray(report.feed)) return fallback();
-    return mapReport(report);
-  } catch {
-    return fallback();
+export const loadFeed = async (now: number = Date.now()): Promise<LoadedFeed> => {
+  for (const url of FEED_URLS) {
+    const report = await fetchReport(url);
+    if (report) return mapReport(report, now);
   }
+  return fallback();
 };

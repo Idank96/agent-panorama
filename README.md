@@ -329,6 +329,46 @@ cp report/report.json frontend/public/feed.json
 cd frontend && npm install && npm run dev
 ```
 
+## Live mode (v0.3) — continuous oversight
+
+Watch your agents **live** instead of from after-the-fact exports. One line in
+any LangChain / LangGraph app streams every completed run to a local dashboard:
+
+```python
+from agent_panorama.live import PanoramaCallbackHandler
+
+agent.invoke(inputs, config={"callbacks": [PanoramaCallbackHandler()]})
+```
+
+Then run the dashboard server (one-time install of the `live` extra):
+
+```bash
+pip install 'agent-panorama[live]'
+agent-panorama serve --open        # dashboard at http://localhost:8321
+```
+
+Each run appears in the activity feed within seconds of finishing — outcome,
+tool calls, tokens, anomalies, and per-agent rollups all update live (the
+dashboard polls `/api/report` every 3 s).
+
+**Designed to be safe in the instrumented app:**
+
+- The handler ships with the base package and posts runs over the standard
+  library — your agent app never needs the server dependencies.
+- Delivery never raises and never blocks beyond a 2 s timeout: if the dashboard
+  is down, the app logs one warning and keeps working.
+- The server keeps runs in memory (`--max-runs` caps retention) and applies the
+  same analysis as batch reports, so outcomes/anomalies match `generate`.
+
+Useful flags: `--port`, `--host`, `--config your.yaml` (same YAML as
+`generate` — tool descriptions, escalation tools, model prices), `--max-runs`.
+Point the handler elsewhere with `PanoramaCallbackHandler(endpoint=...)` or the
+`AGENT_PANORAMA_ENDPOINT` env var.
+
+Try it without LangChain: start `agent-panorama serve --open`, then run
+`python examples/live_demo.py` to stream three synthetic runs into the
+dashboard. A real LangChain example lives in `examples/live_langchain_demo.py`.
+
 ## Roadmap
 
 `agent-panorama` starts as a report generator and is growing into an **oversight
@@ -356,20 +396,24 @@ did, decided, and got wrong. More than logs, across more than one agent.
 - Per-agent rollups: runs, actions, success / escalation / retry rates
 - Cross-agent decision log spanning every agent in the window
 
-**📈 v0.3 — Trends & regressions**
+**✅ v0.3 — Continuous oversight: the live dashboard**
+- One-line LangChain/LangGraph integration (`PanoramaCallbackHandler`)
+- `agent-panorama serve` — a local server with the dashboard bundled in
+- Runs stream in as they finish; feed, rollups, and totals update live
+
+**📈 v0.4 — Trends & regressions**
 - Track rates over time, not just a point-in-time snapshot
 - Flag regressions (escalations or retries spiking vs. a baseline)
 - Period-over-period comparison ("this week vs. last")
 
-**🔌 v0.4 — More sources & deeper detail**
+**🔌 v0.5 — More sources & deeper detail**
 - OpenTelemetry / OpenInference and raw OpenAI-style logs
 - Optionally fetch full input/output from the Langfuse API to enrich
   decision-log parameters
 - Pluggable parser interface for custom trace formats
 
-**🎯 The vision — Continuous oversight**
-- A live dashboard: the activity feed above, always-on, filterable by agent /
-  outcome / time
+**🎯 The vision — Full continuous oversight**
+- In-flight runs on the live dashboard (watch a run while it's still working)
 - Scheduled/continuous reports instead of one-off runs
 - Accountability views a non-engineer can sign off on (what happened, what needs
   a human)
@@ -384,6 +428,27 @@ uv pip install -e ".[dev]"
 python tests/run_all_tests.py     # run the full suite
 ruff check . && ruff format --check .
 ```
+
+## Contributing
+
+Contributions are very welcome — and kept deliberately easy. No CLA, no strict
+process, no style police. If you use agents and want better reports, jump in.
+
+**Good first things to do:**
+- Add a parser for a trace format you use (see the registry in
+  `parsers/__init__.py` — write `parse(payload) -> list[AgentRun]` and register it;
+  nothing downstream changes).
+- Improve a plain-language summary, fix a parsing edge case, or polish the report.
+- Open an issue with a (scrubbed) trace that doesn't render well — that alone helps a lot.
+
+**The whole flow:**
+1. Fork & branch.
+2. Make your change. Run `ruff check . && ruff format .` and `python tests/run_all_tests.py`
+   (a green suite is all that's expected — add a test if it makes sense, but don't sweat it).
+3. Open a PR. Rough is fine — we'll iterate together.
+
+Questions, ideas, half-finished patches: all welcome. Star the repo, open an issue,
+or just say hi. 🙌
 
 ## License
 

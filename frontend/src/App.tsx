@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Decision } from "./types";
 import { AGENTS } from "./data/agents";
 import { demoFeed } from "./data/demoFeed";
@@ -6,6 +6,8 @@ import { loadFeed, type LoadedFeed } from "./lib/loadFeed";
 import { Sidebar, type NavId } from "./components/Sidebar";
 import { Feed } from "./components/Feed";
 import { DetailPanel } from "./components/DetailPanel";
+
+const POLL_INTERVAL_MS = 3_000;
 
 const NAV_LABELS: Record<Exclude<NavId, "activity">, string> = {
   agents: "Agents",
@@ -33,18 +35,28 @@ export default function App() {
     firstPendingId({ entries: demoFeed, agents: AGENTS }),
   );
 
-  // Pull real fleet data on mount; fall back to demo data on any failure.
+  // Poll fleet data so the dashboard updates live (live server, then static
+  // feed, then demo data). Selection, decisions, and filters are reset only on
+  // the first load so they survive subsequent polls.
+  const firstLoad = useRef(true);
   useEffect(() => {
     let active = true;
-    loadFeed().then((loaded) => {
+    const tick = async () => {
+      const loaded = await loadFeed(Date.now());
       if (!active) return;
       setData(loaded);
-      setSelectedId(firstPendingId(loaded));
-      setDecisions({});
-      setSelectedAgent(null);
-    });
+      if (firstLoad.current) {
+        firstLoad.current = false;
+        setSelectedId(firstPendingId(loaded));
+        setDecisions({});
+        setSelectedAgent(null);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, POLL_INTERVAL_MS);
     return () => {
       active = false;
+      clearInterval(interval);
     };
   }, []);
 

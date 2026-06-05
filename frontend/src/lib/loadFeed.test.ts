@@ -147,4 +147,44 @@ describe("loadFeed", () => {
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].agent).toBe("research-assistant");
   });
+
+  it("tries the live server first, then falls back to the static feed", async () => {
+    const report: BackendReport = {
+      generated_at: "2026-05-31T10:00:00Z",
+      time_range: { start: null, end: null },
+      totals: { runs: 1, steps: 1, tokens: 4200, cost_usd: null },
+      feed: [baseItem()],
+      rollups: [],
+      decision_log: [],
+    };
+    const fetchMock = vi.fn((url: string) =>
+      url === "/api/report"
+        ? Promise.reject(new Error("server down"))
+        : Promise.resolve({ ok: true, json: () => Promise.resolve(report) }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await loadFeed();
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/report");
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "feed.json");
+    expect(result.entries).toHaveLength(1);
+  });
+
+  it("threads the injected now into relative-time mapping", async () => {
+    const report: BackendReport = {
+      generated_at: "2026-05-31T10:00:00Z",
+      time_range: { start: null, end: null },
+      totals: { runs: 1, steps: 1, tokens: 4200, cost_usd: null },
+      feed: [baseItem()],
+      rollups: [],
+      decision_log: [],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({ ok: true, json: () => Promise.resolve(report) }),
+      ),
+    );
+    const result = await loadFeed(NOW);
+    expect(result.entries[0].time).toBe("2m ago");
+  });
 });

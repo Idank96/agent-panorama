@@ -29,14 +29,14 @@ The `frontend/` dashboard is a separate npm project (run commands from `frontend
 
 ```bash
 npm install        # one-time
-npm run dev        # Vite dev server (reads public/feed.json)
+npm run dev        # Vite dev server; proxies /api to a local `agent-panorama serve`
 npm run test       # vitest run (the loadFeed.test.ts suite)
-npm run build      # tsc -b && vite build
+npm run build      # tsc -b && vite build → ../src/agent_panorama/static/ (bundled into wheels)
 npm run sync:feed  # cp ../report/report.json public/feed.json (refresh the data it renders)
 ```
 
-**CI does not cover `frontend/`** — ruff/pytest gate only the Python package, so frontend
-type-checks and `npm run test` must be run by hand before touching the dashboard.
+CI runs a `frontend` job (`npm ci && npm run test && npm run build`) alongside the
+Python matrix, but still run both locally before pushing.
 
 ## Architecture: a three-stage pipeline over a normalized model
 
@@ -83,6 +83,41 @@ dashboard:
 - **`frontend/`** (top-level, outside the PyPI package): a Vite + React + TypeScript
   dashboard that reads `feed.json` (falls back to bundled demo data). Backend and frontend
   are two clean dirs; the package is unaffected.
+
+## v0.3 — live mode (`src/agent_panorama/live/`)
+
+Live mode streams **completed** runs from a running LangChain/LangGraph app to a local
+server that serves the dashboard, updating within one poll tick (~3 s). The split is by
+dependency weight, deliberately:
+
+- **`live/handler.py`** — `PanoramaCallbackHandler`, the one-line integration
+  (`config={"callbacks": [PanoramaCallbackHandler()]}`). Works from a **base install**:
+  the `langchain_core` base class is a soft import, delivery uses stdlib `urllib`
+  (`live/transport.py`, never raises, warns once), so the instrumented app never needs
+  the server deps. Accumulates per-root-run state keyed by root `run_id` (thread-safe,
+  `_root_of` maps child → root), builds an `AgentRun` from the callback hooks, synthesizes
+  steps via `parsers.common.fallback_steps`, and POSTs once on root chain end/error. All
+  hooks take `**kwargs` and read optionals via `.get` to survive LangChain version drift.
+- **`live/serde.py`** — the versioned wire format (`{"version": 1, "run": {...}}`),
+  `run_to_dict`/`run_from_dict`. Tolerant inbound: malformed fields degrade, unknown
+  outcomes become `UNKNOWN`. The server re-derives outcome/anomalies/cost via analysis,
+  so handler-side values are informational.
+- **`live/server.py`** — FastAPI app behind the `live` extra
+  (`pip install 'agent-panorama[live]'`; fastapi/uvicorn in `dev` too so tests run in CI).
+  `POST /api/runs` (plain dict body, no pydantic — house style), `GET /api/report`
+  (recomputes `build_report` + `serialize_report` per request; fine for polling),
+  `GET /healthz`, and the bundled dashboard at `/`. `RunStore` is in-memory, idempotent
+  on `run_id`, with optional `--max-runs` trimming (persistence is a noted extension
+  point). The CLI `serve` command catches the ImportError and prints the install hint.
+- **Frontend polling** — `loadFeed(now)` tries `/api/report` → `feed.json` → demo data;
+  `App.tsx` polls every 3 s, resetting selection/decisions only on first load. Vite dev
+  proxies `/api` → `localhost:8321`.
+- **Static bundling (the subtle bit)** — `npm run build` outputs to
+  `src/agent_panorama/static/` (gitignored except `.gitkeep`, which the build script
+  re-touches because `emptyOutDir` wipes it). `[tool.hatch.build] artifacts` keeps the
+  gitignored build output in wheels/sdists — don't replace it with `force-include`,
+  which collides with the tracked `.gitkeep`. **Build the frontend before `uv build`**
+  when cutting a release; verify with `unzip -l dist/*.whl | grep static/index.html`.
 
 ## The hard part: real-world Langfuse parsing
 
@@ -137,7 +172,8 @@ To add a new input format: write `parse(payload) -> list[AgentRun]` and register
 ## Release flow (PyPI Trusted Publishing)
 
 Publishing is automated via `.github/workflows/publish.yml` (OIDC, no tokens) on GitHub
-Release. To cut a release: bump `version` in `pyproject.toml` → `uv lock` → commit/push →
-`gh release create vX.Y.Z`. Two gotchas: a published version's PyPI description is
-**immutable** (fixing the README requires a version bump), and README images must use
-absolute `raw.githubusercontent.com` URLs to render on PyPI.
+Release. To cut a release: **build the frontend** (`cd frontend && npm ci && npm run build`,
+so the dashboard ships inside the wheel) → bump `version` in `pyproject.toml` → `uv lock` →
+commit/push → `gh release create vX.Y.Z`. Two gotchas: a published version's PyPI
+description is **immutable** (fixing the README requires a version bump), and README images
+must use absolute `raw.githubusercontent.com` URLs to render on PyPI.
