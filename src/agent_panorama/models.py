@@ -201,6 +201,7 @@ class FeedItem:
     actor: str | None = None
     turn_count: int = 1
     run_ids: list[str] = field(default_factory=list)
+    value: ValueJudgment | None = None
 
 
 @dataclass
@@ -218,6 +219,10 @@ class AgentRollup:
     total_tokens: int
     total_cost_usd: float | None
     sessions: int = 0
+    judged: int = 0
+    avg_value_score: float | None = None
+    valuable_rate: float | None = None
+    cost_per_valuable_usd: float | None = None
 
 
 @dataclass

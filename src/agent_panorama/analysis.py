@@ -442,3 +442,65 @@ def _to_rollup(agent_key: str, group: list[AgentRun]) -> AgentRollup:
 def _rate(group: list[AgentRun], total: int, outcome: Outcome) -> float:
     """Share of runs in ``group`` with the given outcome."""
     return sum(1 for run in group if run.outcome == outcome) / total
+
+
+# A judged conversation counts as "valuable" from this overall score upward.
+VALUABLE_SCORE_THRESHOLD = 6
+
+
+def apply_value_rollups(report: Report) -> None:
+    """Fold the feed's value judgments into the per-agent rollups, in place.
+
+    Call after the value layer attaches judgments to feed items. Rollups for
+    agents with no judged conversations keep their None/0 defaults, so the
+    JSON contract stays unchanged when the layer is off.
+
+    Args:
+        report: The report whose rollups should absorb the feed's judgments.
+    """
+    judged_by_agent: dict[str, list[FeedItem]] = {}
+    for item in report.feed:
+        if item.value is not None:
+            judged_by_agent.setdefault(item.agent_key, []).append(item)
+    for rollup in report.rollups:
+        _fold_value_into_rollup(rollup, judged_by_agent.get(rollup.agent_key, []))
+
+
+def _fold_value_into_rollup(rollup: AgentRollup, judged: list[FeedItem]) -> None:
+    """Compute one agent's value metrics from its judged feed items."""
+    rollup.judged = len(judged)
+    if not judged:
+        rollup.avg_value_score = None
+        rollup.valuable_rate = None
+        rollup.cost_per_valuable_usd = None
+        return
+    scores = [item.value.overall_score for item in judged if item.value is not None]
+    valuable = sum(1 for score in scores if score >= VALUABLE_SCORE_THRESHOLD)
+    rollup.avg_value_score = sum(scores) / len(scores)
+    rollup.valuable_rate = valuable / len(scores)
+    cost = rollup.total_cost_usd
+    rollup.cost_per_valuable_usd = cost / valuable if cost is not None and valuable else None
+
+
+def value_totals(report: Report) -> dict | None:
+    """Report-level value summary for the JSON contract.
+
+    Args:
+        report: The report whose feed may carry value judgments.
+
+    Returns:
+        A dict with ``judged``, ``avg_value_score``, ``valuable_rate``, and
+        ``cost_per_valuable_usd``, or None when nothing was judged (the value
+        layer is off or every judge call failed).
+    """
+    scores = [item.value.overall_score for item in report.feed if item.value is not None]
+    if not scores:
+        return None
+    valuable = sum(1 for score in scores if score >= VALUABLE_SCORE_THRESHOLD)
+    cost = report.total_cost_usd
+    return {
+        "judged": len(scores),
+        "avg_value_score": sum(scores) / len(scores),
+        "valuable_rate": valuable / len(scores),
+        "cost_per_valuable_usd": cost / valuable if cost is not None and valuable else None,
+    }
