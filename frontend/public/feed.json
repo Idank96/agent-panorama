@@ -1,212 +1,38 @@
 {
-  "generated_at": "2026-05-31T06:35:58.613849+00:00",
+  "generated_at": "2026-06-06T07:21:08.137450+00:00",
   "time_range": {
-    "start": "2026-05-31T09:30:00+00:00",
-    "end": "2026-05-31T13:42:05.600000+00:00"
+    "start": "2026-05-20T09:15:00+00:00",
+    "end": "2026-05-20T11:30:16+00:00"
   },
   "totals": {
-    "runs": 6,
-    "steps": 10,
-    "tokens": 10370,
-    "cost_usd": 0.0300235
+    "runs": 3,
+    "steps": 7,
+    "tokens": 3990,
+    "cost_usd": 0.013417,
+    "value": {
+      "judged": 3,
+      "avg_value_score": 3.0,
+      "valuable_rate": 0.3333333333333333,
+      "cost_per_valuable_usd": 0.013417
+    }
   },
   "feed": [
     {
-      "run_id": "biz-001",
-      "agent_name": "sales-agent",
-      "agent_key": "sales-agent",
-      "action": "Prepared the $48,000 deal proposal for customer ABC-123 from the approved template and emailed it for signature.",
+      "run_id": "trace-003",
+      "agent_name": "weather-assistant",
+      "agent_key": "weather-assistant",
+      "action": "Forecast sent after recovering from a provider timeout.",
       "outcome": "success",
-      "timestamp": "2026-05-31T13:42:00+00:00",
-      "retry_count": 0,
-      "anomaly_count": 0,
-      "tokens": 2650,
-      "cost_usd": 0.00925,
-      "summary": "Prepared the $48,000 deal proposal for customer ABC-123 from the approved template and emailed it for signature.",
-      "facts": [
-        [
-          "Steps",
-          "2"
-        ],
-        [
-          "Retries",
-          "0"
-        ],
-        [
-          "Model calls",
-          "2"
-        ],
-        [
-          "Tokens",
-          "2,650"
-        ],
-        [
-          "Est. cost",
-          "$0.0092"
-        ]
-      ],
-      "anomalies": []
-    },
-    {
-      "run_id": "biz-002",
-      "agent_name": "inbox-agent",
-      "agent_key": "inbox-agent",
-      "action": "Scanned 38 new emails, identified 1 high-priority message, and sent you a short summary.",
-      "outcome": "success",
-      "timestamp": "2026-05-31T13:20:00+00:00",
-      "retry_count": 0,
-      "anomaly_count": 0,
-      "tokens": 1490,
-      "cost_usd": 0.00030900000000000003,
-      "summary": "Scanned 38 new emails, identified 1 high-priority message, and sent you a short summary.",
-      "facts": [
-        [
-          "Steps",
-          "2"
-        ],
-        [
-          "Retries",
-          "0"
-        ],
-        [
-          "Model calls",
-          "2"
-        ],
-        [
-          "Tokens",
-          "1,490"
-        ],
-        [
-          "Est. cost",
-          "$0.0003"
-        ]
-      ],
-      "anomalies": []
-    },
-    {
-      "run_id": "biz-003",
-      "agent_name": "finance-agent",
-      "agent_key": "finance-agent",
-      "action": "Compiled the Q2 expense report from the synced ledger and emailed it to the finance team.",
-      "outcome": "success",
-      "timestamp": "2026-05-31T12:30:00+00:00",
-      "retry_count": 0,
-      "anomaly_count": 0,
-      "tokens": 2420,
-      "cost_usd": 0.0111,
-      "summary": "Compiled the Q2 expense report from the synced ledger and emailed it to the finance team.",
-      "facts": [
-        [
-          "Steps",
-          "2"
-        ],
-        [
-          "Retries",
-          "0"
-        ],
-        [
-          "Model calls",
-          "1"
-        ],
-        [
-          "Tokens",
-          "2,420"
-        ],
-        [
-          "Est. cost",
-          "$0.0111"
-        ]
-      ],
-      "anomalies": []
-    },
-    {
-      "run_id": "biz-004",
-      "agent_name": "recruiting-agent",
-      "agent_key": "recruiting-agent",
-      "action": "Flagged the application for human review.",
-      "outcome": "human-escalated",
-      "timestamp": "2026-05-31T11:15:00+00:00",
-      "retry_count": 0,
-      "anomaly_count": 0,
-      "tokens": 2040,
-      "cost_usd": 0.009000000000000001,
-      "summary": "Candidate #4821 scored inside the ambiguous review band, so the application was flagged for human review before advancing.",
-      "facts": [
-        [
-          "Steps",
-          "2"
-        ],
-        [
-          "Retries",
-          "0"
-        ],
-        [
-          "Model calls",
-          "1"
-        ],
-        [
-          "Tokens",
-          "2,040"
-        ],
-        [
-          "Est. cost",
-          "$0.0090"
-        ]
-      ],
-      "anomalies": []
-    },
-    {
-      "run_id": "biz-005",
-      "agent_name": "ops-agent",
-      "agent_key": "ops-agent",
-      "action": "Placed a replenishment order for 500 units of part SKU-22 with the preferred supplier.",
-      "outcome": "success",
-      "timestamp": "2026-05-31T10:05:00+00:00",
-      "retry_count": 0,
-      "anomaly_count": 0,
-      "tokens": 1190,
-      "cost_usd": 0.0002505,
-      "summary": "Placed a replenishment order for 500 units of part SKU-22 with the preferred supplier.",
-      "facts": [
-        [
-          "Steps",
-          "1"
-        ],
-        [
-          "Retries",
-          "0"
-        ],
-        [
-          "Model calls",
-          "2"
-        ],
-        [
-          "Tokens",
-          "1,190"
-        ],
-        [
-          "Est. cost",
-          "$0.0003"
-        ]
-      ],
-      "anomalies": []
-    },
-    {
-      "run_id": "biz-006",
-      "agent_name": "support-agent",
-      "agent_key": "support-agent",
-      "action": "Issue a refund for order ORD-5567.",
-      "outcome": "failure",
-      "timestamp": "2026-05-31T09:30:00+00:00",
+      "timestamp": "2026-05-20T11:30:00+00:00",
       "retry_count": 1,
-      "anomaly_count": 1,
-      "tokens": 580,
-      "cost_usd": 0.00011399999999999998,
-      "summary": "",
+      "anomaly_count": 2,
+      "tokens": 570,
+      "cost_usd": 0.000117,
+      "summary": "Forecast sent after recovering from a provider timeout.",
       "facts": [
         [
           "Steps",
-          "1"
+          "3"
         ],
         [
           "Retries",
@@ -218,7 +44,7 @@
         ],
         [
           "Tokens",
-          "580"
+          "570"
         ],
         [
           "Est. cost",
@@ -226,111 +52,259 @@
         ]
       ],
       "anomalies": [
-        "Errors encountered: Payment gateway rejected the refund for ORD-5567 (code: DECLINED)"
-      ]
+        "Errors encountered: Weather provider timed out after 12s",
+        "Fell back to an alternate model or path to complete the task."
+      ],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 9,
+        "goal_completion": 10,
+        "response_quality": 9,
+        "efficiency": 10,
+        "outcome": "Tomorrow's forecast for Paris was emailed to the user.",
+        "rationale": "The assistant fully completed the user's request to email tomorrow's forecast for Paris in a single turn, as indicated by \"Forecast sent after recovering from a provider timeout.\" The mention of a 'provider timeout' is a minor detail that doesn't detract significantly from the user's experience, as the task was still completed.",
+        "value_delivered": [
+          "The assistant successfully sent the email with tomorrow's forecast for Paris, as confirmed by \"Forecast sent after recovering from a provider timeout.\""
+        ],
+        "value_lost": [],
+        "recommended_fixes": [],
+        "custom_scores": {
+          "self_service": 10
+        },
+        "criteria_verdicts": {
+          "the user's request was fully completed": true
+        }
+      }
+    },
+    {
+      "run_id": "trace-002",
+      "agent_name": "scheduling-assistant",
+      "agent_key": "scheduling-assistant",
+      "action": "This request has been handed off to a human scheduler.",
+      "outcome": "human-escalated",
+      "timestamp": "2026-05-20T10:02:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 1400,
+      "cost_usd": 0.0066,
+      "summary": "This request has been handed off to a human scheduler.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "1,400"
+        ],
+        [
+          "Est. cost",
+          "$0.0066"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 0,
+        "goal_completion": 0,
+        "response_quality": 1,
+        "efficiency": 0,
+        "outcome": "The meeting booking request was handed off to a human scheduler, requiring human intervention to complete the task.",
+        "rationale": "The assistant completely failed to achieve the user's goal of getting the task done without needing a human, as it immediately handed off the request to a human scheduler (Exchange 1). No value was delivered by the assistant in this session.",
+        "value_delivered": [],
+        "value_lost": [
+          "The user's goal of getting the task done without needing a human was not met, as the assistant immediately escalated the request to a human scheduler (Exchange 1).",
+          "The user's request was not fully completed by the assistant, leading to a lack of self-service (Exchange 1)."
+        ],
+        "recommended_fixes": [
+          "The system should be enhanced to handle meeting scheduling requests directly, or at least gather necessary information before escalating, to enable self-service.",
+          "If a task cannot be completed by the assistant, it should provide a clear explanation of why it's escalating and what the next steps or expected timeline are, rather than just stating a handoff."
+        ],
+        "custom_scores": {
+          "self_service": 0
+        },
+        "criteria_verdicts": {
+          "the user's request was fully completed": false
+        }
+      }
+    },
+    {
+      "run_id": "trace-001",
+      "agent_name": "research-assistant",
+      "agent_key": "research-assistant",
+      "action": "Here are three notable AI papers from this week, each with a short summary.",
+      "outcome": "success",
+      "timestamp": "2026-05-20T09:15:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 2020,
+      "cost_usd": 0.0067,
+      "summary": "Here are three notable AI papers from this week, each with a short summary.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "2"
+        ],
+        [
+          "Tokens",
+          "2,020"
+        ],
+        [
+          "Est. cost",
+          "$0.0067"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 0,
+        "goal_completion": 0,
+        "response_quality": 0,
+        "efficiency": 0,
+        "outcome": "The user received a promise of information about top AI papers but did not actually receive the papers or their summaries.",
+        "rationale": "The assistant failed to complete the user's request. It promised to provide 'three notable AI papers from this week, each with a short summary' (Exchange 1) but did not actually deliver any content within the provided transcript, leaving the user's goal entirely unachieved.",
+        "value_delivered": [],
+        "value_lost": [
+          "The user's request for 'top AI papers this week' was not fulfilled, as the assistant only stated it would provide them but did not actually list any papers or summaries. (Exchange 1)"
+        ],
+        "recommended_fixes": [
+          "The assistant should immediately follow through on its promise to provide the 'three notable AI papers from this week, each with a short summary' in the same turn or the very next turn, rather than just stating it will do so."
+        ],
+        "custom_scores": {
+          "self_service": 0
+        },
+        "criteria_verdicts": {
+          "the user's request was fully completed": false
+        }
+      }
     }
   ],
   "rollups": [
     {
-      "agent_name": "sales-agent",
-      "agent_key": "sales-agent",
+      "agent_name": "research-assistant",
+      "agent_key": "research-assistant",
       "runs": 1,
       "actions": 2,
       "success_rate": 1.0,
       "escalation_rate": 0.0,
       "failure_rate": 0.0,
       "retry_rate": 0.0,
-      "total_tokens": 2650,
-      "total_cost_usd": 0.00925
+      "total_tokens": 2020,
+      "total_cost_usd": 0.0067,
+      "sessions": 0,
+      "judged": 1,
+      "avg_value_score": 0.0,
+      "valuable_rate": 0.0,
+      "cost_per_valuable_usd": null
     },
     {
-      "agent_name": "inbox-agent",
-      "agent_key": "inbox-agent",
-      "runs": 1,
-      "actions": 2,
-      "success_rate": 1.0,
-      "escalation_rate": 0.0,
-      "failure_rate": 0.0,
-      "retry_rate": 0.0,
-      "total_tokens": 1490,
-      "total_cost_usd": 0.00030900000000000003
-    },
-    {
-      "agent_name": "finance-agent",
-      "agent_key": "finance-agent",
-      "runs": 1,
-      "actions": 2,
-      "success_rate": 1.0,
-      "escalation_rate": 0.0,
-      "failure_rate": 0.0,
-      "retry_rate": 0.0,
-      "total_tokens": 2420,
-      "total_cost_usd": 0.0111
-    },
-    {
-      "agent_name": "recruiting-agent",
-      "agent_key": "recruiting-agent",
+      "agent_name": "scheduling-assistant",
+      "agent_key": "scheduling-assistant",
       "runs": 1,
       "actions": 2,
       "success_rate": 0.0,
       "escalation_rate": 1.0,
       "failure_rate": 0.0,
       "retry_rate": 0.0,
-      "total_tokens": 2040,
-      "total_cost_usd": 0.009000000000000001
+      "total_tokens": 1400,
+      "total_cost_usd": 0.0066,
+      "sessions": 0,
+      "judged": 1,
+      "avg_value_score": 0.0,
+      "valuable_rate": 0.0,
+      "cost_per_valuable_usd": null
     },
     {
-      "agent_name": "ops-agent",
-      "agent_key": "ops-agent",
+      "agent_name": "weather-assistant",
+      "agent_key": "weather-assistant",
       "runs": 1,
-      "actions": 1,
+      "actions": 3,
       "success_rate": 1.0,
       "escalation_rate": 0.0,
       "failure_rate": 0.0,
-      "retry_rate": 0.0,
-      "total_tokens": 1190,
-      "total_cost_usd": 0.0002505
-    },
-    {
-      "agent_name": "support-agent",
-      "agent_key": "support-agent",
-      "runs": 1,
-      "actions": 1,
-      "success_rate": 0.0,
-      "escalation_rate": 0.0,
-      "failure_rate": 1.0,
       "retry_rate": 1.0,
-      "total_tokens": 580,
-      "total_cost_usd": 0.00011399999999999998
+      "total_tokens": 570,
+      "total_cost_usd": 0.000117,
+      "sessions": 0,
+      "judged": 1,
+      "avg_value_score": 9.0,
+      "valuable_rate": 1.0,
+      "cost_per_valuable_usd": 0.000117
     }
   ],
   "decision_log": [
     {
-      "timestamp": "2026-05-31T11:15:04.100000+00:00",
-      "agent_name": "recruiting-agent",
-      "action": "Handed the task off to a person",
-      "parameters": "reason: ambiguous score band, queue: recruiting",
+      "timestamp": "2026-05-20T09:15:03.600000+00:00",
+      "agent_name": "research-assistant",
+      "action": "Web search",
+      "parameters": "query: top AI papers this week",
       "outcome": "succeeded"
     },
     {
-      "timestamp": "2026-05-31T12:30:05.300000+00:00",
-      "agent_name": "finance-agent",
-      "action": "Sent an email",
-      "parameters": "to: finance@acme.example, subject: Q2 expense report, attach: exp-q2-26",
+      "timestamp": "2026-05-20T09:15:04.300000+00:00",
+      "agent_name": "research-assistant",
+      "action": "Summarize text",
+      "parameters": "documents: 3, max words: 80",
       "outcome": "succeeded"
     },
     {
-      "timestamp": "2026-05-31T13:20:03.600000+00:00",
-      "agent_name": "inbox-agent",
-      "action": "Sent an email",
-      "parameters": "to: user, subject: Inbox summary \u2014 1 important item",
+      "timestamp": "2026-05-20T10:02:04.100000+00:00",
+      "agent_name": "scheduling-assistant",
+      "action": "Check calendar",
+      "parameters": "team: design, window: next_week",
       "outcome": "succeeded"
     },
     {
-      "timestamp": "2026-05-31T13:42:04.100000+00:00",
-      "agent_name": "sales-agent",
-      "action": "Sent an email",
-      "parameters": "to: contact@abc-123.example, subject: Your proposal from Acme, attach: prop-7741",
+      "timestamp": "2026-05-20T10:02:04.500000+00:00",
+      "agent_name": "scheduling-assistant",
+      "action": "Human handoff",
+      "parameters": "reason: needs human confirmation, queue: scheduling",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-05-20T11:30:02.100000+00:00",
+      "agent_name": "weather-assistant",
+      "action": "Get weather",
+      "parameters": "city: Paris, provider: primary",
+      "outcome": "failed: Weather provider timed out after 12s"
+    },
+    {
+      "timestamp": "2026-05-20T11:30:14.200000+00:00",
+      "agent_name": "weather-assistant",
+      "action": "Get weather",
+      "parameters": "city: Paris, provider: backup",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-05-20T11:30:15.500000+00:00",
+      "agent_name": "weather-assistant",
+      "action": "Send email",
+      "parameters": "to: user, subject: Paris forecast for tomorrow",
       "outcome": "succeeded"
     }
   ]
