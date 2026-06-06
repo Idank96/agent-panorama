@@ -188,3 +188,84 @@ describe("loadFeed", () => {
     expect(result.entries[0].time).toBe("2m ago");
   });
 });
+
+describe("value layer mapping", () => {
+  const judgment = {
+    overall_score: 7,
+    goal_completion: 8,
+    response_quality: 7,
+    efficiency: 6,
+    outcome: "student got unstuck",
+    rationale: "cited evidence",
+    value_delivered: ["explained moon phases"],
+    value_lost: [],
+    recommended_fixes: [],
+    custom_scores: {},
+    criteria_verdicts: { "understood the concept": true },
+  };
+
+  it("passes a judgment through and defaults to null when absent", () => {
+    expect(mapBackendItem(baseItem({ value: judgment })).value).toEqual(
+      judgment,
+    );
+    expect(mapBackendItem(baseItem()).value).toBeNull();
+  });
+
+  it("maps rollup value metrics and totals.value", () => {
+    const report: BackendReport = {
+      generated_at: "2026-05-31T10:00:00Z",
+      time_range: { start: null, end: null },
+      totals: {
+        runs: 1,
+        steps: 1,
+        tokens: 4200,
+        cost_usd: 0.0123,
+        value: {
+          judged: 3,
+          avg_value_score: 7.5,
+          valuable_rate: 0.66,
+          cost_per_valuable_usd: 0.0062,
+        },
+      },
+      feed: [baseItem({ value: judgment })],
+      rollups: [
+        {
+          agent_name: "Research Assistant",
+          agent_key: "research-assistant",
+          runs: 3,
+          sessions: 2,
+          total_cost_usd: 0.0123,
+          judged: 3,
+          avg_value_score: 7.5,
+          valuable_rate: 0.66,
+          cost_per_valuable_usd: 0.0062,
+        },
+      ],
+      decision_log: [],
+    };
+    const result = mapReport(report, NOW);
+    expect(result.rollups).toHaveLength(1);
+    expect(result.rollups[0].avgValueScore).toBe(7.5);
+    expect(result.rollups[0].costPerValuable).toBe("$0.0062");
+    expect(result.valueTotals?.judged).toBe(3);
+    expect(result.valueTotals?.costPerValuable).toBe("$0.0062");
+  });
+
+  it("tolerates pre-value payloads: no value keys anywhere", () => {
+    const report: BackendReport = {
+      generated_at: "2026-05-31T10:00:00Z",
+      time_range: { start: null, end: null },
+      totals: { runs: 1, steps: 1, tokens: 4200, cost_usd: null },
+      feed: [baseItem()],
+      rollups: [
+        { agent_name: "Research Assistant", agent_key: "research-assistant", runs: 1 },
+      ],
+      decision_log: [],
+    };
+    const result = mapReport(report, NOW);
+    expect(result.valueTotals).toBeNull();
+    expect(result.entries[0].value).toBeNull();
+    expect(result.rollups[0].judged).toBe(0);
+    expect(result.rollups[0].avgValueScore).toBeNull();
+  });
+});

@@ -295,7 +295,7 @@ def test_server_aggregates_session_and_applies_cached_phrase(monkeypatch) -> Non
     from agent_panorama.live.server import RunStore, create_app
 
     monkeypatch.setattr(
-        "agent_panorama.summarize.summarize_session",
+        "agent_panorama.layers.summary.summarize_session",
         lambda transcript, model: "Helped the student across the session.",
     )
     store = RunStore()
@@ -327,8 +327,116 @@ def test_ingest_skips_summary_for_sessionless_runs(monkeypatch) -> None:
 
     calls: list[str] = []
     monkeypatch.setattr(
-        "agent_panorama.summarize.summarize_session",
+        "agent_panorama.layers.summary.summarize_session",
         lambda transcript, model: calls.append(transcript) or "phrase",
+    )
+    store = RunStore()
+    client = TestClient(create_app(ReportConfig(), store))
+    client.post("/api/runs", json={"version": WIRE_VERSION, "run": run_to_dict(_full_run())})
+    time.sleep(0.1)
+    assert calls == []
+
+
+def _judgment(score: int = 8):
+    from agent_panorama.models import ValueJudgment
+
+    return ValueJudgment(
+        overall_score=score,
+        goal_completion=score,
+        response_quality=score,
+        efficiency=score,
+        outcome="student got unstuck",
+        rationale="evidence",
+    )
+
+
+def _value_config() -> ReportConfig:
+    from agent_panorama.config import ValueLayerConfig
+    from agent_panorama.layers.value import ValueContext
+
+    return ReportConfig(value=ValueLayerConfig(default=ValueContext(domain="education")))
+
+
+def test_run_store_judgment_cache_keeps_newest() -> None:
+    from agent_panorama.live.server import RunStore
+
+    store = RunStore()
+    store.cache_judgment("g1", 2, _judgment(5))
+    store.cache_judgment("g1", 1, _judgment(2))
+    assert store.get_judgment("g1").overall_score == 5
+    store.cache_judgment("g1", 3, _judgment(9))
+    assert store.get_judgment("g1").overall_score == 9
+    assert store.get_judgment("missing") is None
+
+
+def test_server_judges_session_and_reports_value(monkeypatch) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from agent_panorama.layers.value.judge import ValueJudgmentExchange
+    from agent_panorama.live.server import RunStore, create_app
+
+    def fake_judge(turns, context=None, model="stub", chat_model=None):
+        return ValueJudgmentExchange(model, "sys", "transcript", judgment=_judgment(7))
+
+    monkeypatch.setattr("agent_panorama.layers.value.judge_session", fake_judge)
+    store = RunStore()
+    client = TestClient(create_app(_value_config(), store))
+    for run_id in ("turn-1", "turn-2"):
+        client.post(
+            "/api/runs", json={"version": WIRE_VERSION, "run": run_to_dict(_session_run(run_id))}
+        )
+
+    deadline = time.monotonic() + 5
+    while store.get_judgment("session:tutor:sess-live:student-9") is None:
+        assert time.monotonic() < deadline, "judgment thread never cached a verdict"
+        time.sleep(0.02)
+
+    report = client.get("/api/report").json()
+    session = next(item for item in report["feed"] if item["turn_count"] > 1)
+    assert session["value"]["overall_score"] == 7
+    assert session["value"]["outcome"] == "student got unstuck"
+    rollup = next(r for r in report["rollups"] if r["agent_key"] == "tutor")
+    assert rollup["judged"] == 1
+    assert rollup["avg_value_score"] == 7
+    assert report["totals"]["value"]["judged"] == 1
+
+
+def test_server_judges_sessionless_run_by_run_id(monkeypatch) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from agent_panorama.layers.value.judge import ValueJudgmentExchange
+    from agent_panorama.live.server import RunStore, create_app
+
+    def fake_judge(turns, context=None, model="stub", chat_model=None):
+        return ValueJudgmentExchange(model, "sys", "transcript", judgment=_judgment(4))
+
+    monkeypatch.setattr("agent_panorama.layers.value.judge_session", fake_judge)
+    store = RunStore()
+    client = TestClient(create_app(_value_config(), store))
+    client.post("/api/runs", json={"version": WIRE_VERSION, "run": run_to_dict(_full_run())})
+
+    deadline = time.monotonic() + 5
+    while store.get_judgment("run-1") is None:
+        assert time.monotonic() < deadline, "judgment thread never cached a verdict"
+        time.sleep(0.02)
+
+    report = client.get("/api/report").json()
+    item = next(f for f in report["feed"] if f["run_id"] == "run-1")
+    assert item["value"]["overall_score"] == 4
+
+
+def test_ingest_skips_judging_without_value_config(monkeypatch) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from agent_panorama.live.server import RunStore, create_app
+
+    calls: list = []
+    monkeypatch.setattr(
+        "agent_panorama.layers.value.judge_session",
+        lambda *args, **kwargs: calls.append(args) or None,
     )
     store = RunStore()
     client = TestClient(create_app(ReportConfig(), store))

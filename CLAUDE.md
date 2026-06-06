@@ -136,13 +136,51 @@ A multi-turn conversation is ONE feed entry, not N. The pieces:
   summed tokens/retries/cost, `Interactions: N · x ok · y failed` fact, `turn_count`/`run_ids`.
   Rollup rates stay per-run; `AgentRollup.sessions` counts distinct conversations.
 - **LLM phrasing is enrichment, not analysis**: `build_report` stays pure with a deterministic
-  session line; `summarize.build_session_exchange` (session prompt via `_invoke_with`) phrases
-  the transcript from `analysis.session_transcript`. Batch: `core.apply_session_summaries`
+  session line; `layers.summary.build_session_exchange` (session prompt via `_invoke_with`)
+  phrases the transcript from `analysis.session_transcript`. Batch: `core.apply_session_summaries`
   runs after `rebuild_feed` (which would otherwise clobber it) and logs to `llm_calls.log`.
   Live: ingest spawns a daemon thread, caches per `(group_id, turn_count)` in `RunStore`,
   `/api/report` applies the cache — never blocks ingest, never re-summarizes per poll.
   Failures (no provider extra / key) degrade to the deterministic line; phrasing needs a
   provider extra (e.g. `[gemini]` + GOOGLE_API_KEY in `.env`).
+
+## v0.4 — two layers over one substrate (`layers/`)
+
+The product is two **lenses** over the same normalized conversations, and `layers/`
+makes that the code structure (mirroring how `parsers/` holds input formats). The layer
+contract (`layers/__init__.py`): a layer enriches feed items of a *finished* report in
+place, never feeds back into analysis, never raises, and degrades to the deterministic
+baseline. `build_report` stays pure.
+
+- **`layers/summary.py`** — the summarization layer ("what happened"), moved from
+  `summarize.py`; `agent_panorama.summarize` remains a back-compat re-export shim.
+- **`layers/value/`** — the value layer ("was it worth it"), absorbed from the standalone
+  `value-layer` prototype (never published; the old folder is archived). An LLM judge
+  (`judge.py:judge_session`) scores each conversation against the customer's own
+  `ValueContext` (`context.py`: domain, user_goal, success_criteria, custom_dimensions)
+  and returns a plain `ValueJudgment` (in `models.py`). Pydantic appears ONLY in
+  `layers/value/_schema.py` (the structured-output contract), imported lazily at judge
+  call time — it arrives transitively with any provider extra, so the base install never
+  needs it. Same `init_chat_model` path as the summary layer ⇒ the existing provider
+  extras power both; there is no separate `[value]` extra.
+- **Opt-in by config presence**: a `value:` YAML block enables judging (mirrors
+  `model_prices` enabling cost). `ValueLayerConfig.context_for(agent_key)` resolves
+  per-agent contexts merged field-wise over `default` — a fleet rarely has one goal.
+- **Batch**: `core.apply_value_judgments` runs right after `apply_session_summaries` —
+  newest feed items first, `max_judgments` hard cap (default 50, the cost guard),
+  sessions always / single runs unless `include_single_runs: false`, audited to
+  `llm_calls.log`. Then `analysis.apply_value_rollups` folds `judged`/`avg_value_score`/
+  `valuable_rate`/`cost_per_valuable_usd` into rollups (valuable = overall score ≥ 6,
+  `analysis.VALUABLE_SCORE_THRESHOLD`).
+- **Live**: mirrors the summary machinery exactly — ingest spawns a daemon thread,
+  `RunStore` caches one judgment per conversation keyed by turn count (re-judged only
+  when a new turn lands, never per poll; sessionless runs keyed by `run_id`),
+  `/api/report` applies the cache.
+- **JSON contract additions are purely additive**: `feed[].value`, rollup value fields,
+  `totals.value` — all `null` when the layer is off; the frontend hides the Value view
+  entirely then (`showValue` in `App.tsx`). The Value view sorts conversations
+  lowest-value first and leads with **cost per valuable conversation** (needs
+  `model_prices` too).
 
 ## The hard part: real-world Langfuse parsing
 

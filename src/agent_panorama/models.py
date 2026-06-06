@@ -154,6 +154,28 @@ class DecisionLogEntry:
 
 
 @dataclass
+class ValueJudgment:
+    """The value layer's verdict on one conversation (session or single run).
+
+    A plain mirror of the LLM judge's structured output: how much value the
+    conversation delivered to the user, judged against the customer's own
+    definition of value. Scores are 0 (no value) to 10 (exceptional value).
+    """
+
+    overall_score: int
+    goal_completion: int
+    response_quality: int
+    efficiency: int
+    outcome: str
+    rationale: str
+    value_delivered: list[str] = field(default_factory=list)
+    value_lost: list[str] = field(default_factory=list)
+    recommended_fixes: list[str] = field(default_factory=list)
+    custom_scores: dict[str, int] = field(default_factory=dict)
+    criteria_verdicts: dict[str, bool] = field(default_factory=dict)
+
+
+@dataclass
 class FeedItem:
     """One cross-agent activity-feed entry.
 
@@ -179,6 +201,7 @@ class FeedItem:
     actor: str | None = None
     turn_count: int = 1
     run_ids: list[str] = field(default_factory=list)
+    value: ValueJudgment | None = None
 
 
 @dataclass
@@ -196,6 +219,10 @@ class AgentRollup:
     total_tokens: int
     total_cost_usd: float | None
     sessions: int = 0
+    judged: int = 0
+    avg_value_score: float | None = None
+    valuable_rate: float | None = None
+    cost_per_valuable_usd: float | None = None
 
 
 @dataclass

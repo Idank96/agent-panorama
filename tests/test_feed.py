@@ -208,7 +208,7 @@ def test_session_transcript_format_and_cap() -> None:
 
 def test_apply_session_summaries_overwrites_action(tmp_path, monkeypatch) -> None:
     from agent_panorama import core
-    from agent_panorama.summarize import SummaryExchange
+    from agent_panorama.layers.summary import SummaryExchange
 
     runs = [_turn("t1", _dt(20)), _turn("t2", _dt(21))]
     report = build_report(runs, ReportConfig())
@@ -218,7 +218,7 @@ def test_apply_session_summaries_overwrites_action(tmp_path, monkeypatch) -> Non
             model, "sys", transcript, output="Helped the student with quiz prep."
         )
 
-    import agent_panorama.summarize as summarize_module
+    import agent_panorama.layers.summary as summarize_module
 
     monkeypatch.setattr(summarize_module, "build_session_exchange", fake_exchange)
     core.apply_session_summaries(report, ReportConfig(), tmp_path)
@@ -228,7 +228,7 @@ def test_apply_session_summaries_overwrites_action(tmp_path, monkeypatch) -> Non
 
 def test_apply_session_summaries_keeps_fallback_on_error(tmp_path, monkeypatch) -> None:
     from agent_panorama import core
-    from agent_panorama.summarize import SummaryExchange
+    from agent_panorama.layers.summary import SummaryExchange
 
     runs = [_turn("t1", _dt(20)), _turn("t2", _dt(21))]
     report = build_report(runs, ReportConfig())
@@ -237,7 +237,7 @@ def test_apply_session_summaries_keeps_fallback_on_error(tmp_path, monkeypatch) 
     def failing_exchange(transcript: str, model: str) -> SummaryExchange:
         return SummaryExchange(model, "sys", transcript, error="no api key")
 
-    import agent_panorama.summarize as summarize_module
+    import agent_panorama.layers.summary as summarize_module
 
     monkeypatch.setattr(summarize_module, "build_session_exchange", failing_exchange)
     core.apply_session_summaries(report, ReportConfig(), tmp_path)

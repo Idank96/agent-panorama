@@ -10,7 +10,7 @@ import _bootstrap  # noqa: F401,E402
 
 import pytest  # noqa: E402
 
-from agent_panorama import summarize  # noqa: E402
+from agent_panorama.layers import summary as summarize  # noqa: E402
 
 
 def test_one_line_flattens_blocks_and_whitespace() -> None:
@@ -108,3 +108,11 @@ def test_summarize_session_empty_transcript() -> None:
     exchange = summarize.build_session_exchange("   ")
     assert exchange.output is None
     assert "empty transcript" in (exchange.error or "")
+
+
+def test_back_compat_shim_reexports_the_layer() -> None:
+    from agent_panorama import summarize as shim
+
+    assert shim.summarize_result is summarize.summarize_result
+    assert shim.build_session_exchange is summarize.build_session_exchange
+    assert shim.SummaryExchange is summarize.SummaryExchange

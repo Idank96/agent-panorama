@@ -5,11 +5,12 @@ import { demoFeed } from "./data/demoFeed";
 import { loadFeed, type LoadedFeed } from "./lib/loadFeed";
 import { Sidebar, type NavId } from "./components/Sidebar";
 import { Feed } from "./components/Feed";
+import { ValueView } from "./components/ValueView";
 import { DetailPanel } from "./components/DetailPanel";
 
 const POLL_INTERVAL_MS = 3_000;
 
-const NAV_LABELS: Record<Exclude<NavId, "activity">, string> = {
+const NAV_LABELS: Record<Exclude<NavId, "activity" | "value">, string> = {
   agents: "Agents",
   reports: "Reports",
   settings: "Settings",
@@ -30,9 +31,11 @@ export default function App() {
   const [data, setData] = useState<LoadedFeed>({
     entries: demoFeed,
     agents: AGENTS,
+    rollups: [],
+    valueTotals: null,
   });
   const [selectedId, setSelectedId] = useState<string | null>(() =>
-    firstPendingId({ entries: demoFeed, agents: AGENTS }),
+    firstPendingId({ entries: demoFeed, agents: AGENTS, rollups: [], valueTotals: null }),
   );
 
   // Poll fleet data so the dashboard updates live (live server, then static
@@ -91,6 +94,9 @@ export default function App() {
   const filterName = selectedAgent
     ? (data.agents[selectedAgent]?.name ?? selectedAgent)
     : null;
+  // The Value view appears only when the value layer judged something.
+  const hasValue =
+    data.valueTotals !== null || data.entries.some((e) => e.value);
 
   return (
     <div className="ap-app">
@@ -100,6 +106,7 @@ export default function App() {
         agents={data.agents}
         selectedAgent={selectedAgent}
         setSelectedAgent={setSelectedAgent}
+        showValue={hasValue}
       />
 
       {nav === "activity" ? (
@@ -113,6 +120,15 @@ export default function App() {
           query={query}
           setQuery={setQuery}
           filterName={filterName}
+        />
+      ) : nav === "value" ? (
+        <ValueView
+          entries={filtered}
+          agents={data.agents}
+          rollups={data.rollups}
+          totals={data.valueTotals}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
         />
       ) : (
         <main className="ap-feed">
@@ -137,7 +153,7 @@ export default function App() {
       )}
 
       <DetailPanel
-        entry={nav === "activity" ? selectedEntry : null}
+        entry={nav === "activity" || nav === "value" ? selectedEntry : null}
         agent={selectedEntry ? (data.agents[selectedEntry.agent] ?? null) : null}
         decision={selectedEntry ? decisions[selectedEntry.id] : undefined}
         onDecision={onDecision}

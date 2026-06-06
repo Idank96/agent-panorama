@@ -12,7 +12,7 @@ import pytest  # noqa: E402
 from click.testing import CliRunner  # noqa: E402
 
 from agent_panorama import generate_report  # noqa: E402
-from agent_panorama import summarize as summarize_mod  # noqa: E402
+from agent_panorama.layers import summary as summarize_mod  # noqa: E402
 from agent_panorama.cli import cli  # noqa: E402
 
 _LANGFUSE = _bootstrap.EXAMPLES / "langfuse_traces.json"

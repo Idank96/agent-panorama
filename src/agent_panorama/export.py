@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime
 
+from .analysis import value_totals
 from .config import ReportConfig
-from .models import AgentRollup, DecisionLogEntry, FeedItem, Report
+from .models import AgentRollup, DecisionLogEntry, FeedItem, Report, ValueJudgment
 
 
 def serialize_report(report: Report, config: ReportConfig) -> dict:
@@ -37,6 +39,7 @@ def _totals(report: Report) -> dict:
         "steps": report.total_steps,
         "tokens": report.total_tokens,
         "cost_usd": report.total_cost_usd,
+        "value": value_totals(report),
     }
 
 
@@ -60,7 +63,13 @@ def _feed_item(item: FeedItem) -> dict:
         "actor": item.actor,
         "turn_count": item.turn_count,
         "run_ids": list(item.run_ids),
+        "value": _value_judgment(item.value),
     }
+
+
+def _value_judgment(judgment: ValueJudgment | None) -> dict | None:
+    """Serialize a feed item's value judgment, or None when unjudged."""
+    return asdict(judgment) if judgment is not None else None
 
 
 def _rollup(rollup: AgentRollup) -> dict:
@@ -77,6 +86,10 @@ def _rollup(rollup: AgentRollup) -> dict:
         "total_tokens": rollup.total_tokens,
         "total_cost_usd": rollup.total_cost_usd,
         "sessions": rollup.sessions,
+        "judged": rollup.judged,
+        "avg_value_score": rollup.avg_value_score,
+        "valuable_rate": rollup.valuable_rate,
+        "cost_per_valuable_usd": rollup.cost_per_valuable_usd,
     }
 
 

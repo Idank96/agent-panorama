@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING
 
 from . import parsers
 from .analysis import build_report, rebuild_feed
-from .config import ReportConfig, load_config
+from .config import ReportConfig, ValueLayerConfig, load_config
 from .export import serialize_report
 from .models import AgentRun, Report
 from .render import render
 
 if TYPE_CHECKING:
-    from .summarize import SummaryExchange
+    from .layers.summary import SummaryExchange
 
 _EXTENSIONS = {"md": ".md", "html": ".html", "json": ".json"}
 
@@ -65,6 +65,7 @@ def generate_report(
         _summarize_results(report, report_config, Path(output_dir))
         rebuild_feed(report, report_config)
     apply_session_summaries(report, report_config, Path(output_dir))
+    apply_value_judgments(report, report_config, Path(output_dir))
     _write_outputs(report, report_config, output_dir, formats or ["md", "html"])
     return report
 
@@ -78,7 +79,7 @@ def _summarize_results(report: Report, config: ReportConfig, output_dir: Path) -
     """
     if config.detail != "minimal":
         return
-    from .summarize import build_exchange
+    from .layers.summary import build_exchange
 
     exchanges = []
     for run in report.runs:
@@ -103,7 +104,7 @@ def apply_session_summaries(report: Report, config: ReportConfig, output_dir: Pa
         output_dir: Directory receiving the LLM audit log.
     """
     from .analysis import session_transcript
-    from .summarize import build_session_exchange
+    from .layers.summary import build_session_exchange
 
     runs_by_id = {run.run_id: run for run in report.runs}
     exchanges = []
@@ -117,6 +118,48 @@ def apply_session_summaries(report: Report, config: ReportConfig, output_dir: Pa
         exchanges.append((item.run_id, item.agent_name, exchange))
     if exchanges:
         _write_llm_log(output_dir / "llm_calls.log", exchanges)
+
+
+def apply_value_judgments(report: Report, config: ReportConfig, output_dir: Path) -> None:
+    """Run the value layer over the feed, attaching judgments in place.
+
+    Strictly opt-in: a no-op unless the config carries a ``value:`` block.
+    Judges newest conversations first up to ``max_judgments`` (cost guard);
+    each judged feed item gains a :class:`~agent_panorama.models.ValueJudgment`
+    and the per-agent rollups absorb the value rates. Degrades gracefully:
+    failed judge calls leave items unjudged. Every exchange is appended to
+    ``<output_dir>/llm_calls.log``.
+
+    Args:
+        report: The assembled report with a final feed.
+        config: Report configuration (supplies the ``value`` block).
+        output_dir: Directory receiving the LLM audit log.
+    """
+    if config.value is None:
+        return
+    from .analysis import apply_value_rollups
+    from .layers.value import judge_session
+
+    runs_by_id = {run.run_id: run for run in report.runs}
+    exchanges = []
+    for item in _judgable_items(report, config.value):
+        turns = [runs_by_id[rid] for rid in (item.run_ids or [item.run_id]) if rid in runs_by_id]
+        context = config.value.context_for(item.agent_key)
+        exchange = judge_session(turns, context, config.value.judge_model)
+        if exchange.judgment is not None:
+            item.value = exchange.judgment
+        exchanges.append((item.run_id, item.agent_name, exchange))
+    apply_value_rollups(report)
+    if exchanges:
+        _write_llm_log(output_dir / "llm_calls.log", exchanges)
+
+
+def _judgable_items(report: Report, value_config: ValueLayerConfig) -> list:
+    """Pick the feed items to judge: newest first, capped, sessions always."""
+    items = [
+        item for item in report.feed if item.turn_count > 1 or value_config.include_single_runs
+    ]
+    return items[: value_config.max_judgments]
 
 
 def _write_llm_log(path: Path, exchanges: list) -> None:

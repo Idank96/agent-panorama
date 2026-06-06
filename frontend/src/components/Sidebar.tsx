@@ -4,9 +4,10 @@ import {
   IconAgents,
   IconReports,
   IconSettings,
+  IconValue,
 } from "../icons";
 
-export type NavId = "activity" | "agents" | "reports" | "settings";
+export type NavId = "activity" | "value" | "agents" | "reports" | "settings";
 
 interface SidebarProps {
   nav: NavId;
@@ -14,10 +15,12 @@ interface SidebarProps {
   agents: Record<string, AgentMeta>;
   selectedAgent: string | null;
   setSelectedAgent: (id: string | null) => void;
+  showValue: boolean;
 }
 
 const NAV_ITEMS: { id: NavId; label: string; Icon: typeof IconActivity }[] = [
   { id: "activity", label: "Activity Feed", Icon: IconActivity },
+  { id: "value", label: "Value", Icon: IconValue },
   { id: "agents", label: "Agents", Icon: IconAgents },
   { id: "reports", label: "Reports", Icon: IconReports },
   { id: "settings", label: "Settings", Icon: IconSettings },
@@ -36,7 +39,10 @@ export function Sidebar({
   agents,
   selectedAgent,
   setSelectedAgent,
+  showValue,
 }: SidebarProps) {
+  // The Value view exists only when the value layer judged something.
+  const items = NAV_ITEMS.filter((item) => item.id !== "value" || showValue);
   return (
     <aside className="ap-sidebar">
       <div className="ap-brand">
@@ -50,7 +56,7 @@ export function Sidebar({
       </div>
 
       <nav className="ap-nav">
-        {NAV_ITEMS.map(({ id, label, Icon }) => (
+        {items.map(({ id, label, Icon }) => (
           <button
             key={id}
             className={"ap-nav-item" + (nav === id ? " is-active" : "")}

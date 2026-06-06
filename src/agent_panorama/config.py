@@ -7,6 +7,41 @@ from pathlib import Path
 
 import yaml
 
+from .layers.value.context import ValueContext
+from .layers.value.judge import DEFAULT_JUDGE_MODEL
+
+
+@dataclass
+class ValueLayerConfig:
+    """Configuration for the value layer (LLM-as-judge), opt-in by presence.
+
+    The layer runs only when a ``value:`` block exists in the YAML config —
+    mirroring how ``model_prices`` opts into cost estimation. ``contexts``
+    holds per-agent value definitions keyed by ``agent_key`` (the slugified
+    agent name), each merged field-wise over ``default``.
+    """
+
+    judge_model: str = DEFAULT_JUDGE_MODEL
+    max_judgments: int = 50
+    include_single_runs: bool = True
+    default: ValueContext | None = None
+    contexts: dict[str, ValueContext] = field(default_factory=dict)
+
+    def context_for(self, agent_key: str) -> ValueContext | None:
+        """Resolve the value context for one agent.
+
+        Args:
+            agent_key: The agent's slugified name.
+
+        Returns:
+            The agent's context merged over the default, the default alone,
+            or None when neither is configured (generic rubric).
+        """
+        override = self.contexts.get(agent_key)
+        if override is None:
+            return self.default
+        return override.merged_over(self.default)
+
 
 @dataclass
 class AnomalyThresholds:
@@ -34,6 +69,7 @@ class ReportConfig:
     detail: str = "standard"
     summarize_model: str = "google_genai:gemini-2.5-flash-lite"
     model_prices: dict[str, dict] = field(default_factory=dict)
+    value: ValueLayerConfig | None = None
 
     def price_for(self, model: str) -> dict | None:
         """Return USD-per-1M-token prices for a model, by substring match.
@@ -111,4 +147,36 @@ def _config_from_dict(raw: dict) -> ReportConfig:
         detail=str(raw.get("detail") or "standard"),
         summarize_model=str(raw.get("summarize_model") or "google_genai:gemini-2.5-flash-lite"),
         model_prices=raw.get("model_prices") or {},
+        value=_value_config_from_dict(raw.get("value")),
+    )
+
+
+def _value_config_from_dict(raw: dict | None) -> ValueLayerConfig | None:
+    """Build a :class:`ValueLayerConfig` from the ``value:`` YAML block."""
+    if not raw:
+        return None
+    contexts = {
+        str(key): _context_from_dict(entry) or ValueContext()
+        for key, entry in (raw.get("contexts") or {}).items()
+    }
+    return ValueLayerConfig(
+        judge_model=str(raw.get("judge_model") or DEFAULT_JUDGE_MODEL),
+        max_judgments=int(raw.get("max_judgments") or 50),
+        include_single_runs=bool(raw.get("include_single_runs", True)),
+        default=_context_from_dict(raw.get("default")),
+        contexts=contexts,
+    )
+
+
+def _context_from_dict(raw: dict | None) -> ValueContext | None:
+    """Build a :class:`ValueContext` from one YAML context mapping."""
+    if not raw:
+        return None
+    return ValueContext(
+        domain=raw.get("domain"),
+        user_goal=raw.get("user_goal"),
+        success_criteria=[str(item) for item in raw.get("success_criteria") or []],
+        custom_dimensions={
+            str(key): str(val) for key, val in (raw.get("custom_dimensions") or {}).items()
+        },
     )

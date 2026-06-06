@@ -19,10 +19,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from ..analysis import build_report, session_group_key, session_transcript
+from ..analysis import apply_value_rollups, build_report, session_group_key, session_transcript
 from ..config import ReportConfig, load_config
 from ..export import serialize_report
-from ..models import AgentRun, Report
+from ..models import AgentRun, Report, ValueJudgment
+from ..text import slugify
 from .serde import run_from_dict
 
 DEFAULT_PORT = 8321
@@ -42,6 +43,7 @@ class RunStore:
     max_runs: int | None = None
     _runs: list[AgentRun] = field(default_factory=list)
     _summaries: dict[str, tuple[int, str]] = field(default_factory=dict)
+    _judgments: dict[str, tuple[int, ValueJudgment]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def add(self, run: AgentRun) -> None:
@@ -68,6 +70,19 @@ class RunStore:
         """Return the latest cached phrase for a session group, if any."""
         with self._lock:
             cached = self._summaries.get(group_id)
+            return cached[1] if cached else None
+
+    def cache_judgment(self, group_id: str, turn_count: int, judgment: ValueJudgment) -> None:
+        """Cache a value judgment, keeping only the newest per conversation."""
+        with self._lock:
+            current = self._judgments.get(group_id)
+            if current is None or current[0] <= turn_count:
+                self._judgments[group_id] = (turn_count, judgment)
+
+    def get_judgment(self, group_id: str) -> ValueJudgment | None:
+        """Return the latest cached judgment for a conversation, if any."""
+        with self._lock:
+            cached = self._judgments.get(group_id)
             return cached[1] if cached else None
 
 
@@ -107,12 +122,14 @@ def _add_api_routes(app: FastAPI, config: ReportConfig, store: RunStore) -> None
         run = run_from_dict(raw if isinstance(raw, dict) else body)
         store.add(run)
         _schedule_session_summary(run, store, config)
+        _schedule_value_judgment(run, store, config)
         return {"ok": True, "run_id": run.run_id}
 
     @app.get("/api/report")
     def report() -> dict:
         built = build_report(store.snapshot(), config)
         _apply_cached_summaries(built, store)
+        _apply_cached_judgments(built, store)
         return serialize_report(built, config)
 
     @app.get("/healthz")
@@ -149,11 +166,45 @@ def _summarize_session_into_cache(
     store: RunStore, config: ReportConfig, group_id: str, turns: list[AgentRun]
 ) -> None:
     """Phrase one session and cache the result (background thread body)."""
-    from ..summarize import summarize_session
+    from ..layers.summary import summarize_session
 
     phrase = summarize_session(session_transcript(turns), config.summarize_model)
     if phrase:
         store.cache_summary(group_id, len(turns), phrase)
+
+
+def _schedule_value_judgment(run: AgentRun, store: RunStore, config: ReportConfig) -> None:
+    """Kick off background value judging for the run's conversation.
+
+    Mirrors the session-summary machinery: a no-op without a ``value:``
+    config, never blocks ingest, and the (group, turn-count) cache means a
+    conversation is only re-judged when a new turn lands — never per poll.
+    Sessionless runs are judged once, keyed by their own ``run_id``.
+    """
+    if config.value is None:
+        return
+    group_id = session_group_key(run)
+    turns = _session_turns(store, group_id) if group_id else [run]
+    thread = threading.Thread(
+        target=_judge_into_cache,
+        args=(store, config, group_id or run.run_id, turns),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _judge_into_cache(
+    store: RunStore, config: ReportConfig, group_id: str, turns: list[AgentRun]
+) -> None:
+    """Judge one conversation and cache the result (background thread body)."""
+    from ..layers.value import judge_session
+
+    if config.value is None or not turns:
+        return
+    context = config.value.context_for(slugify(turns[-1].name))
+    exchange = judge_session(turns, context, config.value.judge_model)
+    if exchange.judgment is not None:
+        store.cache_judgment(group_id, len(turns), exchange.judgment)
 
 
 def _apply_cached_summaries(report: Report, store: RunStore) -> None:
@@ -163,6 +214,18 @@ def _apply_cached_summaries(report: Report, store: RunStore) -> None:
             phrase = store.get_summary(item.run_id)
             if phrase:
                 item.action = phrase
+
+
+def _apply_cached_judgments(report: Report, store: RunStore) -> None:
+    """Attach cached value judgments to feed items and refresh value rollups."""
+    applied = False
+    for item in report.feed:
+        judgment = store.get_judgment(item.run_id)
+        if judgment is not None:
+            item.value = judgment
+            applied = True
+    if applied:
+        apply_value_rollups(report)
 
 
 def _mount_static(app: FastAPI) -> None:

@@ -1,4 +1,12 @@
-import type { AgentMeta, FeedEntry, Outcome, Status } from "../types";
+import type {
+  AgentMeta,
+  FeedEntry,
+  Outcome,
+  Status,
+  ValueJudgment,
+  ValueRollup,
+  ValueTotals,
+} from "../types";
 import { AGENTS, resolveAgent } from "../data/agents";
 import { demoFeed } from "../data/demoFeed";
 
@@ -22,20 +30,49 @@ export interface BackendFeedItem {
   actor?: string | null;
   turn_count?: number;
   run_ids?: string[];
+  // Value layer (v0.4): present on judged conversations.
+  value?: ValueJudgment | null;
+}
+
+export interface BackendRollup {
+  agent_name: string;
+  agent_key: string;
+  runs: number;
+  sessions?: number;
+  total_cost_usd?: number | null;
+  judged?: number;
+  avg_value_score?: number | null;
+  valuable_rate?: number | null;
+  cost_per_valuable_usd?: number | null;
+}
+
+export interface BackendValueTotals {
+  judged: number;
+  avg_value_score: number | null;
+  valuable_rate: number | null;
+  cost_per_valuable_usd: number | null;
 }
 
 export interface BackendReport {
   generated_at: string;
   time_range: { start: string | null; end: string | null };
-  totals: { runs: number; steps: number; tokens: number; cost_usd: number | null };
+  totals: {
+    runs: number;
+    steps: number;
+    tokens: number;
+    cost_usd: number | null;
+    value?: BackendValueTotals | null;
+  };
   feed: BackendFeedItem[];
-  rollups: unknown[];
+  rollups: BackendRollup[];
   decision_log: unknown[];
 }
 
 export interface LoadedFeed {
   entries: FeedEntry[];
   agents: Record<string, AgentMeta>;
+  rollups: ValueRollup[];
+  valueTotals: ValueTotals | null;
 }
 
 const OUTCOME_TO_STATUS: Record<Outcome, Status> = {
@@ -96,7 +133,33 @@ export const mapBackendItem = (
   summary: item.summary,
   facts: item.facts ?? [],
   tokens: { used: item.tokens, cost: formatCost(item.cost_usd) },
+  value: item.value ?? null,
 });
+
+/** Map one backend rollup to the value metrics the Value view renders. */
+export const mapRollup = (rollup: BackendRollup): ValueRollup => ({
+  agentKey: rollup.agent_key,
+  agentName: rollup.agent_name,
+  runs: rollup.runs,
+  sessions: rollup.sessions ?? 0,
+  judged: rollup.judged ?? 0,
+  avgValueScore: rollup.avg_value_score ?? null,
+  valuableRate: rollup.valuable_rate ?? null,
+  costPerValuable: formatCost(rollup.cost_per_valuable_usd ?? null),
+  totalCost: formatCost(rollup.total_cost_usd ?? null),
+});
+
+const mapValueTotals = (
+  totals: BackendValueTotals | null | undefined,
+): ValueTotals | null =>
+  totals
+    ? {
+        judged: totals.judged,
+        avgValueScore: totals.avg_value_score,
+        valuableRate: totals.valuable_rate,
+        costPerValuable: formatCost(totals.cost_per_valuable_usd),
+      }
+    : null;
 
 /** Map a full backend report into typed entries plus an agent registry. */
 export const mapReport = (
@@ -110,10 +173,20 @@ export const mapReport = (
       agents[item.agent_key] = resolveAgent(item.agent_key, item.agent_name);
     }
   }
-  return { entries, agents };
+  return {
+    entries,
+    agents,
+    rollups: (report.rollups ?? []).map(mapRollup),
+    valueTotals: mapValueTotals(report.totals?.value),
+  };
 };
 
-const fallback = (): LoadedFeed => ({ entries: demoFeed, agents: AGENTS });
+const fallback = (): LoadedFeed => ({
+  entries: demoFeed,
+  agents: AGENTS,
+  rollups: [],
+  valueTotals: null,
+});
 
 /** Data sources in preference order: live server first, static export second. */
 const FEED_URLS = ["/api/report", "feed.json"];

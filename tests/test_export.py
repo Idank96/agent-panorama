@@ -35,7 +35,7 @@ def test_top_level_keys_present() -> None:
 
 def test_totals_block_shape() -> None:
     totals = _serialized()["totals"]
-    assert set(totals) == {"runs", "steps", "tokens", "cost_usd"}
+    assert set(totals) == {"runs", "steps", "tokens", "cost_usd", "value"}
     assert totals["cost_usd"] is None
 
 
