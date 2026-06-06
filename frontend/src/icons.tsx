@@ -125,3 +125,9 @@ export const IconAlert = (p: IconProps) => (
     <path d="M12 10v4M12 17.5v.01" />
   </Ic>
 );
+export const IconValue = (p: IconProps) => (
+  <Ic {...p}>
+    <path d="M6 3h12l4 6-10 12L2 9z" />
+    <path d="M2 9h20M9 3l3 6 3-6M12 9v12" />
+  </Ic>
+);

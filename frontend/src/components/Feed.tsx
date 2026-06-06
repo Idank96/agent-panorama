@@ -14,6 +14,17 @@ export function StatusPill({ status }: { status: Status }) {
   return <span className={"ap-pill ap-pill-" + meta.kind}>{meta.label}</span>;
 }
 
+/** Score band → pill kind, aligned with the backend's "valuable" threshold (6). */
+export const scoreKind = (score: number): Status =>
+  score >= 6 ? "completed" : score >= 4 ? "pending" : "failed";
+
+/** Compact 0-10 value-score pill shown on judged conversations. */
+export function ScorePill({ score }: { score: number }) {
+  return (
+    <span className={"ap-pill ap-pill-" + scoreKind(score)}>{score}/10</span>
+  );
+}
+
 export function AgentBadge({ agent }: { agent: AgentMeta }) {
   return (
     <span
@@ -87,6 +98,7 @@ export function FeedCard({
 
         <div className="ap-card-foot">
           <StatusPill status={effStatus} />
+          {entry.value && <ScorePill score={entry.value.overall_score} />}
 
           {entry.status === "pending" && !decision ? (
             <div className="ap-actions" onClick={(e) => e.stopPropagation()}>

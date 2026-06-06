@@ -1,5 +1,12 @@
-import type { AgentMeta, Decision, FeedEntry, Status } from "../types";
+import type {
+  AgentMeta,
+  Decision,
+  FeedEntry,
+  Status,
+  ValueJudgment,
+} from "../types";
 import { STATUS } from "../data/agents";
+import { ScorePill } from "./Feed";
 import {
   IconAlert,
   IconBolt,
@@ -22,6 +29,68 @@ const effectiveStatus = (status: Status, decision?: Decision): Status =>
     : decision === "rejected"
       ? "failed"
       : status;
+
+/** The value layer's verdict: scores, value delivered/lost, fixes, criteria. */
+function ValueSection({ value }: { value: ValueJudgment }) {
+  const subScores: [string, number][] = [
+    ["Goal", value.goal_completion],
+    ["Quality", value.response_quality],
+    ["Efficiency", value.efficiency],
+    ...Object.entries(value.custom_scores),
+  ];
+  return (
+    <section className="ap-detail-sec">
+      <h3>Value</h3>
+      <div className="ap-value-verdict">
+        <div className="ap-value-verdict-top">
+          <ScorePill score={value.overall_score} />
+          <span className="ap-value-outcome">{value.outcome}</span>
+        </div>
+        <div className="ap-value-subscores">
+          {subScores.map(([label, score]) => (
+            <span className="ap-value-subscore" key={label}>
+              {label} <b>{score}</b>
+            </span>
+          ))}
+        </div>
+        {value.value_delivered.length > 0 && (
+          <ul className="ap-value-list is-delivered">
+            {value.value_delivered.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+        {value.value_lost.length > 0 && (
+          <ul className="ap-value-list is-lost">
+            {value.value_lost.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+        {value.recommended_fixes.length > 0 && (
+          <ul className="ap-value-list is-fixes">
+            {value.recommended_fixes.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+        {Object.keys(value.criteria_verdicts).length > 0 && (
+          <dl className="ap-kv ap-value-criteria">
+            {Object.entries(value.criteria_verdicts).map(([criterion, met]) => (
+              <div className="ap-kv-row" key={criterion}>
+                <dt>{criterion}</dt>
+                <dd className={met ? "is-met" : "is-unmet"}>
+                  {met ? "Met" : "Not met"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        <p className="ap-value-rationale">{value.rationale}</p>
+      </div>
+    </section>
+  );
+}
 
 /** Right panel — expanded detail of the selected activity. */
 export function DetailPanel({
@@ -99,6 +168,8 @@ export function DetailPanel({
             </div>
           </section>
         )}
+
+        {entry.value && <ValueSection value={entry.value} />}
 
         <section className="ap-detail-sec">
           <h3>Cost</h3>
