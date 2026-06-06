@@ -212,11 +212,44 @@ def _format_pair(key: str, value: object, max_value: int) -> str:
 
 
 def _build_feed(runs: list[AgentRun], config: ReportConfig) -> list[FeedItem]:
-    """Build one cross-agent feed item per run, newest first."""
-    items = [_to_feed_item(run, config) for run in runs]
+    """Build the cross-agent activity feed, newest first.
+
+    Runs sharing a ``(session_id, actor)`` pair aggregate into one item (the
+    whole session is one "thing" the agent did); sessionless runs stay one
+    item per run.
+    """
+    singles, groups = _partition_runs(runs)
+    items = [_to_feed_item(run, config) for run in singles]
+    items.extend(_to_group_item(key, turns, config) for key, turns in groups.items())
     items.sort(key=lambda item: item.timestamp.timestamp() if item.timestamp else float("-inf"))
     items.reverse()
     return items
+
+
+def _partition_runs(runs: list[AgentRun]) -> tuple[list[AgentRun], dict[str, list[AgentRun]]]:
+    """Split runs into sessionless singles and session groups (turns ordered)."""
+    singles: list[AgentRun] = []
+    groups: dict[str, list[AgentRun]] = {}
+    for run in runs:
+        key = session_group_key(run)
+        if key is None:
+            singles.append(run)
+        else:
+            groups.setdefault(key, []).append(run)
+    for turns in groups.values():
+        turns.sort(key=lambda r: r.start_time.timestamp() if r.start_time else float("inf"))
+    return singles, groups
+
+
+def session_group_key(run: AgentRun) -> str | None:
+    """Stable feed identity for a run's session, or None when sessionless.
+
+    The key doubles as the aggregated feed item's ``run_id``, so it must stay
+    stable across rebuilds (frontend selection depends on it).
+    """
+    if not run.session_id:
+        return None
+    return f"session:{slugify(run.name)}:{run.session_id}:{run.user_id or ''}"
 
 
 def _to_feed_item(run: AgentRun, config: ReportConfig) -> FeedItem:
@@ -243,6 +276,125 @@ def _action_text(run: AgentRun) -> str:
     return run.result_summary or condense(run.output_text) or condense(run.input_text)
 
 
+_OUTCOME_RANK = {Outcome.FAILURE: 3, Outcome.ESCALATED: 2, Outcome.UNKNOWN: 1, Outcome.SUCCESS: 0}
+
+# Human labels for the per-outcome breakdown shown on aggregated feed items.
+_OUTCOME_LABEL = {
+    Outcome.SUCCESS: "ok",
+    Outcome.FAILURE: "failed",
+    Outcome.ESCALATED: "escalated",
+    Outcome.UNKNOWN: "unknown",
+}
+
+
+def _to_group_item(key: str, turns: list[AgentRun], config: ReportConfig) -> FeedItem:
+    """Aggregate one session's turns into a single feed item.
+
+    The action text here is the deterministic fallback; the LLM session
+    phrasing (when it succeeds) overwrites it post-build.
+    """
+    last = turns[-1]
+    costs = [run.cost_usd for run in turns if run.cost_usd is not None]
+    return FeedItem(
+        run_id=key,
+        agent_name=last.name,
+        agent_key=slugify(last.name),
+        action=_group_action_text(turns),
+        outcome=_worst_outcome(turns),
+        timestamp=max((r.start_time for r in turns if r.start_time), default=None),
+        retry_count=sum(run.retry_count for run in turns),
+        anomaly_count=len(_group_anomalies(turns)),
+        tokens=sum(run.total_tokens for run in turns),
+        cost_usd=sum(costs) if costs else None,
+        summary=condense(last.output_text),
+        facts=_group_facts(turns),
+        anomalies=_group_anomalies(turns),
+        session_id=last.session_id,
+        actor=last.user_id,
+        turn_count=len(turns),
+        run_ids=[run.run_id for run in turns],
+    )
+
+
+def _group_action_text(turns: list[AgentRun]) -> str:
+    """Deterministic one-line label for a whole session.
+
+    A one-turn session reads like a normal run; the multi-turn phrasing kicks
+    in once the conversation actually has several interactions.
+    """
+    if len(turns) == 1:
+        return _action_text(turns[0])
+    last = turns[-1]
+    who = last.user_id or last.session_id or "user"
+    result = condense(last.output_text) or condense(last.input_text)
+    return f"Helped {who}: {len(turns)} interactions — {result}"
+
+
+def _worst_outcome(turns: list[AgentRun]) -> Outcome:
+    """Most severe outcome across the session's turns."""
+    return max((run.outcome for run in turns), key=_OUTCOME_RANK.__getitem__)
+
+
+def _group_anomalies(turns: list[AgentRun]) -> list[str]:
+    """Order-preserving deduped union of every turn's anomalies."""
+    seen: dict[str, None] = {}
+    for run in turns:
+        for note in run.anomalies:
+            seen.setdefault(note, None)
+    return list(seen)
+
+
+def _group_facts(turns: list[AgentRun]) -> list[tuple[str, str]]:
+    """Compact key/value facts for an aggregated session item."""
+    facts = [
+        ("Interactions", _interactions_breakdown(turns)),
+        ("Retries", str(sum(run.retry_count for run in turns))),
+        ("Model calls", str(sum(len(run.llm_calls) for run in turns))),
+        ("Tokens", f"{sum(run.total_tokens for run in turns):,}"),
+    ]
+    costs = [run.cost_usd for run in turns if run.cost_usd is not None]
+    if costs:
+        facts.append(("Est. cost", f"${sum(costs):.4f}"))
+    return facts
+
+
+def _interactions_breakdown(turns: list[AgentRun]) -> str:
+    """Render '4 · 3 ok · 1 failed' style per-outcome counts."""
+    counts: dict[Outcome, int] = {}
+    for run in turns:
+        counts[run.outcome] = counts.get(run.outcome, 0) + 1
+    parts = [
+        f"{counts[outcome]} {_OUTCOME_LABEL[outcome]}"
+        for outcome in sorted(counts, key=_OUTCOME_RANK.__getitem__, reverse=True)
+    ]
+    return " · ".join([str(len(turns)), *parts])
+
+
+def session_transcript(turns: list[AgentRun], max_chars: int = 1500) -> str:
+    """Concatenate a session's turns into a compact numbered transcript.
+
+    The transcript is what the LLM session phrasing receives: one line per
+    turn — what was asked, which tools ran, what came back.
+
+    Args:
+        turns: The session's runs, ordered by start time.
+        max_chars: Hard cap on the rendered transcript length.
+
+    Returns:
+        A newline-joined transcript, truncated to ``max_chars``.
+    """
+    lines = [_turn_line(index, run) for index, run in enumerate(turns, 1)]
+    return "\n".join(lines)[:max_chars]
+
+
+def _turn_line(index: int, run: AgentRun) -> str:
+    """Render one transcript line for a single turn."""
+    tools = ", ".join(call.name for call in run.tool_calls) or "no tools"
+    asked = condense(run.input_text) or "(none)"
+    result = condense(run.output_text) or (run.error_messages[0] if run.error_messages else "")
+    return f"{index}. asked: {asked} → {tools} → result: {result or '(none)'}"
+
+
 def _feed_facts(run: AgentRun) -> list[tuple[str, str]]:
     """Build the compact key/value facts shown on a feed item."""
     facts = [
@@ -265,7 +417,11 @@ def _build_rollups(runs: list[AgentRun], config: ReportConfig) -> list[AgentRoll
 
 
 def _to_rollup(agent_key: str, group: list[AgentRun]) -> AgentRollup:
-    """Compute a single agent's rollup metrics and outcome rates."""
+    """Compute a single agent's rollup metrics and outcome rates.
+
+    Rates stay per-run (per turn) so they remain statistically honest;
+    ``sessions`` counts the distinct conversations those runs belong to.
+    """
     total = len(group)
     costs = [run.cost_usd for run in group if run.cost_usd is not None]
     return AgentRollup(
@@ -279,6 +435,7 @@ def _to_rollup(agent_key: str, group: list[AgentRun]) -> AgentRollup:
         retry_rate=sum(1 for run in group if run.retry_count > 0) / total,
         total_tokens=sum(run.total_tokens for run in group),
         total_cost_usd=sum(costs) if costs else None,
+        sessions=len({run.session_id for run in group if run.session_id}),
     )
 
 

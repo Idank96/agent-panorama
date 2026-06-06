@@ -64,6 +64,7 @@ def generate_report(
     if summarize:
         _summarize_results(report, report_config, Path(output_dir))
         rebuild_feed(report, report_config)
+    apply_session_summaries(report, report_config, Path(output_dir))
     _write_outputs(report, report_config, output_dir, formats or ["md", "html"])
     return report
 
@@ -86,6 +87,36 @@ def _summarize_results(report: Report, config: ReportConfig, output_dir: Path) -
             run.result_summary = exchange.output
         exchanges.append((run.run_id, run.name, exchange))
     _write_llm_log(output_dir / "llm_calls.log", exchanges)
+
+
+def apply_session_summaries(report: Report, config: ReportConfig, output_dir: Path) -> None:
+    """Phrase each aggregated session feed item via the LLM layer, in place.
+
+    Runs after the feed is final (never followed by ``rebuild_feed``, which
+    would clobber the phrasing). Degrades gracefully: on any failure the item
+    keeps its deterministic action line. Every exchange is appended to
+    ``<output_dir>/llm_calls.log``.
+
+    Args:
+        report: The assembled report whose feed may contain session aggregates.
+        config: Report configuration (supplies ``summarize_model``).
+        output_dir: Directory receiving the LLM audit log.
+    """
+    from .analysis import session_transcript
+    from .summarize import build_session_exchange
+
+    runs_by_id = {run.run_id: run for run in report.runs}
+    exchanges = []
+    for item in report.feed:
+        if item.turn_count <= 1:
+            continue
+        turns = [runs_by_id[run_id] for run_id in item.run_ids if run_id in runs_by_id]
+        exchange = build_session_exchange(session_transcript(turns), config.summarize_model)
+        if exchange.output:
+            item.action = exchange.output
+        exchanges.append((item.run_id, item.agent_name, exchange))
+    if exchanges:
+        _write_llm_log(output_dir / "llm_calls.log", exchanges)
 
 
 def _write_llm_log(path: Path, exchanges: list) -> None:
@@ -231,7 +262,13 @@ def _filter_runs(
 
 
 def _matches_session(run: AgentRun, session: str) -> bool:
-    """Whether a run belongs to the given session (best-effort by run id)."""
+    """Whether a run belongs to the given session.
+
+    Prefers the run's real ``session_id``; falls back to the legacy best-effort
+    run-id match for traces that carry no session.
+    """
+    if run.session_id is not None:
+        return run.session_id == session
     return run.run_id == session or session in run.run_id
 
 

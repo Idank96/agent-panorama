@@ -88,9 +88,12 @@ def _descendants(root: dict, by_parent: dict[str, list[dict]]) -> list[dict]:
 def _parse_root(root: dict, by_parent: dict[str, list[dict]]) -> AgentRun:
     """Build an :class:`AgentRun` from a root run and its descendants."""
     nodes = _descendants(root, by_parent)
+    session_id, user_id = _identity(root)
     run = AgentRun(
         run_id=str(root.get("id", "")),
         name=str(root.get("name") or "agent"),
+        session_id=session_id,
+        user_id=user_id,
         input_text=summarize_request(root.get("inputs")),
         output_text=summarize_outcome(root.get("outputs")),
         start_time=parse_time(root.get("start_time")),
@@ -100,6 +103,22 @@ def _parse_root(root: dict, by_parent: dict[str, list[dict]]) -> AgentRun:
         _ingest_run(node, run)
     run.steps = _build_steps(root, by_parent, run)
     return run
+
+
+def _identity(root: dict) -> tuple[str | None, str | None]:
+    """Extract the conversation session and user ids from a root run.
+
+    Deliberately ignores the top-level ``session_id`` — in LangSmith exports it
+    is the tracer project id, not a user conversation. Conversation identity
+    lives in ``extra.metadata`` (``thread_id``/``session_id``/``user_id``).
+    """
+    extra = root.get("extra")
+    extra = extra if isinstance(extra, dict) else {}
+    metadata = extra.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    session = metadata.get("session_id") or metadata.get("thread_id")
+    user = metadata.get("user_id") or metadata.get("actor")
+    return (str(session) if session else None, str(user) if user else None)
 
 
 def _build_steps(root: dict, by_parent: dict[str, list[dict]], run: AgentRun) -> list[Step]:

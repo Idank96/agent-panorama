@@ -183,12 +183,20 @@ def _print_summary(report: Report, output_dir: Path, formats: list[str], summari
     default=False,
     help="Open the dashboard in the default browser on start.",
 )
+@click.option(
+    "--summarize-model",
+    default=None,
+    help="LangChain model id for phrasing session summaries, e.g. "
+    "'google_genai:gemini-2.5-flash-lite' (needs a provider extra + API key; "
+    "without one, sessions show a deterministic summary line).",
+)
 def serve(
     port: int,
     host: str,
     config_path: Path | None,
     max_runs: int | None,
     open_browser: bool,
+    summarize_model: str | None,
 ) -> None:
     """Run the live dashboard server (requires the 'live' extra)."""
     try:
@@ -206,6 +214,7 @@ def serve(
             config_path=config_path,
             max_runs=max_runs,
             open_browser=open_browser,
+            summarize_model=summarize_model,
         )
     except OSError as error:
         raise click.ClickException(str(error)) from error

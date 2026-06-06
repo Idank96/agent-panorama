@@ -56,6 +56,10 @@ def _feed_item(item: FeedItem) -> dict:
         "summary": item.summary,
         "facts": [[key, value] for key, value in item.facts],
         "anomalies": list(item.anomalies),
+        "session_id": item.session_id,
+        "actor": item.actor,
+        "turn_count": item.turn_count,
+        "run_ids": list(item.run_ids),
     }
 
 
@@ -72,6 +76,7 @@ def _rollup(rollup: AgentRollup) -> dict:
         "retry_rate": rollup.retry_rate,
         "total_tokens": rollup.total_tokens,
         "total_cost_usd": rollup.total_cost_usd,
+        "sessions": rollup.sessions,
     }
 
 

@@ -61,3 +61,39 @@ def test_cost_serialized_when_priced() -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def test_feed_items_expose_session_fields() -> None:
+    for item in _serialized()["feed"]:
+        assert "session_id" in item
+        assert "actor" in item
+        assert "turn_count" in item
+        assert "run_ids" in item
+
+
+def test_rollups_expose_sessions_count() -> None:
+    for rollup in _serialized()["rollups"]:
+        assert "sessions" in rollup
+        assert isinstance(rollup["sessions"], int)
+
+
+def test_aggregated_session_serializes_group_fields() -> None:
+    from agent_panorama.models import AgentRun
+
+    runs = [
+        AgentRun(
+            run_id=f"t{i}",
+            name="tutor",
+            session_id="sess-1",
+            user_id="student-1",
+            output_text="answered",
+        )
+        for i in (1, 2)
+    ]
+    data = serialize_report(build_report(runs, ReportConfig()), ReportConfig())
+    item = data["feed"][0]
+    assert item["turn_count"] == 2
+    assert item["session_id"] == "sess-1"
+    assert item["actor"] == "student-1"
+    assert item["run_ids"] == ["t1", "t2"]
+    assert data["rollups"][0]["sessions"] == 1

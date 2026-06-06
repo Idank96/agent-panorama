@@ -11,10 +11,15 @@ Imitates the trace *shape* of a retrieval-augmented tutor:
   and fails with a recursion-limit error (failed run, several retrievals).
 - **Follow-up turn**: answered from conversation context, no retrieval at all.
 
+All four turns share one ``(session_id, user_id)``, so the dashboard rolls
+them into a SINGLE feed entry — one student's whole tutoring session — with
+an "Interactions: 4 · ..." breakdown and (when a summarize model is
+configured) an LLM-phrased session line.
+
 Usage (two terminals):
 
     agent-panorama serve --open
-    python examples/live_demo_study_tutor.py
+    python examples/multi_step/study_tutor_session.py
 """
 
 from __future__ import annotations
@@ -25,7 +30,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from agent_panorama.live.serde import WIRE_VERSION, run_to_dict
 from agent_panorama.live.transport import post_run
@@ -35,6 +40,8 @@ ENDPOINT = "http://localhost:8321/api/runs"
 _BATCH = uuid.uuid4().hex[:8]
 
 TUTOR_MODEL = "claude-sonnet-4-5"
+SESSION_ID = f"study-session-{_BATCH}"
+STUDENT = "student-amalia"
 
 
 def _tutor_call(
@@ -57,6 +64,8 @@ def _simple_question_run(now: datetime) -> AgentRun:
     return AgentRun(
         run_id=f"tutor-simple-{_BATCH}",
         name="study-tutor",
+        session_id=SESSION_ID,
+        user_id=STUDENT,
         input_text="Why does the moon have phases?",
         output_text=(
             "Guided the student through it: the moon's phases come from the changing "
@@ -86,6 +95,8 @@ def _fallback_chain_run(now: datetime) -> AgentRun:
     return AgentRun(
         run_id=f"tutor-fallback-{_BATCH}",
         name="study-tutor",
+        session_id=SESSION_ID,
+        user_id=STUDENT,
         input_text="What does the diagram on this page show? (page 87)",
         output_text=(
             "Found it via the raw page text: the diagram traces the water cycle "
@@ -143,6 +154,8 @@ def _recursion_limit_run(now: datetime) -> AgentRun:
     return AgentRun(
         run_id=f"tutor-recursion-{_BATCH}",
         name="study-tutor",
+        session_id=SESSION_ID,
+        user_id=STUDENT,
         input_text="Give me all the answers to the chapter 5 quiz.",
         output_text="",
         start_time=start,
@@ -163,6 +176,8 @@ def _follow_up_run(now: datetime) -> AgentRun:
     return AgentRun(
         run_id=f"tutor-followup-{_BATCH}",
         name="study-tutor",
+        session_id=SESSION_ID,
+        user_id=STUDENT,
         input_text="So is a full moon when the angle is 180 degrees?",
         output_text=(
             "Confirmed and nudged further: yes — and asked what that means for moonrise time."

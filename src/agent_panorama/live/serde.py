@@ -28,6 +28,8 @@ def run_to_dict(run: AgentRun) -> dict:
     return {
         "run_id": run.run_id,
         "name": run.name,
+        "session_id": run.session_id,
+        "user_id": run.user_id,
         "input_text": run.input_text,
         "output_text": run.output_text,
         "result_summary": run.result_summary,
@@ -61,6 +63,8 @@ def run_from_dict(data: dict) -> AgentRun:
     return AgentRun(
         run_id=str(data.get("run_id", "")),
         name=str(data.get("name", "agent")),
+        session_id=_as_optional_str(data.get("session_id")),
+        user_id=_as_optional_str(data.get("user_id")),
         input_text=str(data.get("input_text", "")),
         output_text=str(data.get("output_text", "")),
         result_summary=str(data.get("result_summary", "")),

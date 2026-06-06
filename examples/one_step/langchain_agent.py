@@ -15,7 +15,7 @@ Usage (two terminals):
     agent-panorama serve --open
 
     # terminal 2
-    python examples/live_langchain_demo.py
+    python examples/one_step/langchain_agent.py
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from agent_panorama.live import PanoramaCallbackHandler
 
@@ -47,7 +47,12 @@ def main() -> None:
     agent = create_agent(model, tools=[get_weather])
     result = agent.invoke(
         {"messages": [{"role": "user", "content": "What's the weather in Paris?"}]},
-        config={"callbacks": [PanoramaCallbackHandler()]},
+        config={
+            "callbacks": [PanoramaCallbackHandler()],
+            # Optional: identify the session and user so the dashboard rolls
+            # every turn of this conversation into one feed entry.
+            "metadata": {"session_id": "demo-paris-trip", "user_id": "user-1"},
+        },
     )
     print(result["messages"][-1].content)
 

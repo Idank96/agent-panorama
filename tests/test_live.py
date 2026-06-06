@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -234,3 +235,103 @@ def test_server_root_without_bundled_dashboard_explains_itself() -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def test_serde_carries_session_identity() -> None:
+    run = AgentRun(run_id="r1", name="tutor", session_id="sess-9", user_id="student-3")
+    restored = run_from_dict(run_to_dict(run))
+    assert restored.session_id == "sess-9"
+    assert restored.user_id == "student-3"
+    legacy = run_from_dict({"run_id": "old", "name": "tutor"})
+    assert legacy.session_id is None and legacy.user_id is None
+
+
+def test_handler_captures_session_identity_from_metadata(capture: _Capture) -> None:
+    pytest.importorskip("langchain_core")
+    handler = PanoramaCallbackHandler()
+    root = uuid.uuid4()
+    handler.on_chain_start(
+        {"name": "tutor"},
+        "question",
+        run_id=root,
+        parent_run_id=None,
+        metadata={"thread_id": "thread-7", "user_id": "student-2"},
+    )
+    handler.on_chain_end({"result": "answered"}, run_id=root)
+    run = run_from_dict(capture.posts[0][1]["run"])
+    assert run.session_id == "thread-7"
+    assert run.user_id == "student-2"
+
+
+def test_store_summary_cache_keeps_latest_turn_count() -> None:
+    pytest.importorskip("fastapi")
+    from agent_panorama.live.server import RunStore
+
+    store = RunStore()
+    store.cache_summary("g1", 2, "two turns")
+    store.cache_summary("g1", 1, "stale one-turn phrase")
+    assert store.get_summary("g1") == "two turns"
+    store.cache_summary("g1", 3, "three turns")
+    assert store.get_summary("g1") == "three turns"
+    assert store.get_summary("missing") is None
+
+
+def _session_run(run_id: str, output: str = "answered") -> AgentRun:
+    return AgentRun(
+        run_id=run_id,
+        name="tutor",
+        session_id="sess-live",
+        user_id="student-9",
+        input_text=f"question {run_id}",
+        output_text=output,
+        start_time=datetime(2026, 6, 5, 9, 0, 0, tzinfo=timezone.utc),
+    )
+
+
+def test_server_aggregates_session_and_applies_cached_phrase(monkeypatch) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from agent_panorama.live.server import RunStore, create_app
+
+    monkeypatch.setattr(
+        "agent_panorama.summarize.summarize_session",
+        lambda transcript, model: "Helped the student across the session.",
+    )
+    store = RunStore()
+    client = TestClient(create_app(ReportConfig(), store))
+    for run_id in ("turn-1", "turn-2"):
+        posted = client.post(
+            "/api/runs", json={"version": WIRE_VERSION, "run": run_to_dict(_session_run(run_id))}
+        )
+        assert posted.status_code == 200
+
+    deadline = time.monotonic() + 5
+    while store.get_summary("session:tutor:sess-live:student-9") is None:
+        assert time.monotonic() < deadline, "summary thread never cached a phrase"
+        time.sleep(0.02)
+
+    report = client.get("/api/report").json()
+    sessions = [f for f in report["feed"] if f["turn_count"] > 1]
+    assert len(sessions) == 1
+    assert sessions[0]["turn_count"] == 2
+    assert sessions[0]["action"] == "Helped the student across the session."
+    assert sessions[0]["actor"] == "student-9"
+
+
+def test_ingest_skips_summary_for_sessionless_runs(monkeypatch) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from agent_panorama.live.server import RunStore, create_app
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        "agent_panorama.summarize.summarize_session",
+        lambda transcript, model: calls.append(transcript) or "phrase",
+    )
+    store = RunStore()
+    client = TestClient(create_app(ReportConfig(), store))
+    client.post("/api/runs", json={"version": WIRE_VERSION, "run": run_to_dict(_full_run())})
+    time.sleep(0.1)
+    assert calls == []

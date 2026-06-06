@@ -41,3 +41,5 @@ trace-*.json
 # Personal docs (not tracked)
 idan_docs/
 kog.md
+MESSAGE.md
+claude_docs/

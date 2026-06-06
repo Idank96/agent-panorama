@@ -365,9 +365,35 @@ Useful flags: `--port`, `--host`, `--config your.yaml` (same YAML as
 Point the handler elsewhere with `PanoramaCallbackHandler(endpoint=...)` or the
 `AGENT_PANORAMA_ENDPOINT` env var.
 
+### Sessions: many turns, one feed entry
+
+A chat agent answering 4 questions is still doing *one thing* for *one user* —
+so the feed aggregates by **(session, actor)**. Pass them in the invoke config
+(LangGraph's `thread_id` works automatically):
+
+```python
+agent.invoke(inputs, config={
+    "callbacks": [PanoramaCallbackHandler()],
+    "metadata": {"session_id": "lesson-42", "user_id": "student-7"},
+})
+```
+
+All turns of that pair collapse into a single feed entry with an
+`Interactions: 4 · 3 ok · 1 failed` breakdown, the worst turn's outcome as the
+status, and summed tokens/cost. An LLM layer then phrases the whole session in
+one line — e.g. *"Helped the student understand moon phases."* — using the
+same cheap model as `--summarize` (install a provider extra such as
+`agent-panorama[gemini]` and set its API key; without one, a deterministic
+summary line is shown instead). Override the model with
+`serve --summarize-model ...`. Batch reports (`generate`) aggregate the same
+way — Langfuse's native `sessionId`/`userId` are picked up automatically.
+Runs without a session id stay one-entry-per-run.
+
 Try it without LangChain: start `agent-panorama serve --open`, then run
 `python examples/live_demo.py` to stream three synthetic runs into the
-dashboard. A real LangChain example lives in `examples/live_langchain_demo.py`.
+dashboard. More demos live in [`examples/`](examples/), organized by
+complexity (`one_step/`, `two_step/`, `multi_step/`) — including a real
+LangChain example in `examples/one_step/langchain_agent.py`.
 
 ## Roadmap
 

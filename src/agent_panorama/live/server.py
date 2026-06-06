@@ -19,10 +19,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from ..analysis import build_report
+from ..analysis import build_report, session_group_key, session_transcript
 from ..config import ReportConfig, load_config
 from ..export import serialize_report
-from ..models import AgentRun
+from ..models import AgentRun, Report
 from .serde import run_from_dict
 
 DEFAULT_PORT = 8321
@@ -30,15 +30,18 @@ DEFAULT_PORT = 8321
 
 @dataclass
 class RunStore:
-    """Thread-safe in-memory store of completed runs.
+    """Thread-safe in-memory store of completed runs and session phrases.
 
     Re-posting a run id replaces the previous version (idempotent ingest);
-    when ``max_runs`` is set the oldest runs are trimmed first. Persistence
+    when ``max_runs`` is set the oldest runs are trimmed first. Session
+    summaries cache the latest LLM phrase per session group, keyed so a stale
+    (older turn-count) phrase is replaced when a new turn lands. Persistence
     (e.g. a JSONL journal) is a deliberate extension point, not yet built.
     """
 
     max_runs: int | None = None
     _runs: list[AgentRun] = field(default_factory=list)
+    _summaries: dict[str, tuple[int, str]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def add(self, run: AgentRun) -> None:
@@ -53,6 +56,19 @@ class RunStore:
         """Return a copy of the current runs."""
         with self._lock:
             return list(self._runs)
+
+    def cache_summary(self, group_id: str, turn_count: int, phrase: str) -> None:
+        """Cache a session phrase, keeping only the newest per group."""
+        with self._lock:
+            current = self._summaries.get(group_id)
+            if current is None or current[0] <= turn_count:
+                self._summaries[group_id] = (turn_count, phrase)
+
+    def get_summary(self, group_id: str) -> str | None:
+        """Return the latest cached phrase for a session group, if any."""
+        with self._lock:
+            cached = self._summaries.get(group_id)
+            return cached[1] if cached else None
 
 
 def create_app(config: ReportConfig, store: RunStore) -> FastAPI:
@@ -90,15 +106,63 @@ def _add_api_routes(app: FastAPI, config: ReportConfig, store: RunStore) -> None
         raw = body.get("run")
         run = run_from_dict(raw if isinstance(raw, dict) else body)
         store.add(run)
+        _schedule_session_summary(run, store, config)
         return {"ok": True, "run_id": run.run_id}
 
     @app.get("/api/report")
     def report() -> dict:
-        return serialize_report(build_report(store.snapshot(), config), config)
+        built = build_report(store.snapshot(), config)
+        _apply_cached_summaries(built, store)
+        return serialize_report(built, config)
 
     @app.get("/healthz")
     def healthz() -> dict:
         return {"status": "ok", "runs": len(store.snapshot())}
+
+
+def _schedule_session_summary(run: AgentRun, store: RunStore, config: ReportConfig) -> None:
+    """Kick off background LLM phrasing for the run's session, if it has one.
+
+    Runs in a daemon thread so ingest never waits on a model call; until the
+    phrase lands in the cache the feed shows the deterministic session line.
+    """
+    group_id = session_group_key(run)
+    if group_id is None:
+        return
+    turns = _session_turns(store, group_id)
+    thread = threading.Thread(
+        target=_summarize_session_into_cache,
+        args=(store, config, group_id, turns),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _session_turns(store: RunStore, group_id: str) -> list[AgentRun]:
+    """Collect the session's runs from the store, ordered by start time."""
+    turns = [run for run in store.snapshot() if session_group_key(run) == group_id]
+    turns.sort(key=lambda r: r.start_time.timestamp() if r.start_time else float("inf"))
+    return turns
+
+
+def _summarize_session_into_cache(
+    store: RunStore, config: ReportConfig, group_id: str, turns: list[AgentRun]
+) -> None:
+    """Phrase one session and cache the result (background thread body)."""
+    from ..summarize import summarize_session
+
+    phrase = summarize_session(session_transcript(turns), config.summarize_model)
+    if phrase:
+        store.cache_summary(group_id, len(turns), phrase)
+
+
+def _apply_cached_summaries(report: Report, store: RunStore) -> None:
+    """Overwrite aggregated feed items' action text with cached LLM phrases."""
+    for item in report.feed:
+        if item.turn_count > 1:
+            phrase = store.get_summary(item.run_id)
+            if phrase:
+                item.action = phrase
 
 
 def _mount_static(app: FastAPI) -> None:
@@ -136,6 +200,7 @@ def serve(
     config_path: str | Path | None = None,
     max_runs: int | None = None,
     open_browser: bool = False,
+    summarize_model: str | None = None,
 ) -> None:
     """Run the live dashboard server until interrupted.
 
@@ -145,6 +210,8 @@ def serve(
         config_path: Optional YAML report config.
         max_runs: Optional cap on retained runs (oldest trimmed first).
         open_browser: Open the dashboard in the default browser on start.
+        summarize_model: Optional LangChain model id for session phrasing,
+            overriding the config's ``summarize_model``.
 
     Raises:
         OSError: If the port is already in use (with a hint to pick another).
@@ -152,7 +219,10 @@ def serve(
     import uvicorn
 
     _ensure_port_free(host, port)
-    app = create_app(load_config(config_path), RunStore(max_runs=max_runs))
+    config = load_config(config_path)
+    if summarize_model is not None:
+        config.summarize_model = summarize_model
+    app = create_app(config, RunStore(max_runs=max_runs))
     if open_browser:
         webbrowser.open(f"http://{host}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="info")

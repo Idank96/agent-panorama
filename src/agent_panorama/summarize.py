@@ -31,6 +31,14 @@ _SYSTEM_PROMPT = (
     "preamble. Example: 'Showed all the cutting stations in the plant.'"
 )
 
+_SESSION_SYSTEM_PROMPT = (
+    "You are given a numbered transcript of one user's multi-turn session with "
+    "an agent; each line reads 'asked X → tools → result Y'. Write ONE short "
+    "past-tense sentence summarizing what the agent did for this user across "
+    "the whole session. Plain language, no markdown, no numbers, no preamble. "
+    "Example: 'Helped the student figure out moon phases and prepare for the quiz.'"
+)
+
 
 @dataclass
 class SummaryExchange:
@@ -77,12 +85,50 @@ def summarize_result(text: str, model: str = DEFAULT_MODEL) -> str | None:
     return build_exchange(text, model).output
 
 
+def build_session_exchange(transcript: str, model: str = DEFAULT_MODEL) -> SummaryExchange:
+    """Phrase a whole session transcript as one action sentence.
+
+    Mirrors :func:`build_exchange` — capped input, never raises — but uses the
+    session prompt, so a multi-turn conversation reads as one "thing" the agent
+    did for the user.
+
+    Args:
+        transcript: The numbered session transcript (see
+            :func:`agent_panorama.analysis.session_transcript`).
+        model: A LangChain ``init_chat_model`` identifier.
+
+    Returns:
+        A :class:`SummaryExchange` with the exact prompt, input, and output/error.
+    """
+    snippet = transcript.strip()[:MAX_INPUT_CHARS]
+    if not snippet:
+        return SummaryExchange(
+            model, _SESSION_SYSTEM_PROMPT, "", error="empty transcript; nothing to send"
+        )
+    try:
+        output = _invoke_with(model, snippet, _SESSION_SYSTEM_PROMPT)
+        return SummaryExchange(model, _SESSION_SYSTEM_PROMPT, snippet, output=output)
+    except Exception as error:  # noqa: BLE001 - never let phrasing break a report
+        logger.warning("Session summarization with %s failed: %s", model, error)
+        return SummaryExchange(model, _SESSION_SYSTEM_PROMPT, snippet, error=str(error))
+
+
+def summarize_session(transcript: str, model: str = DEFAULT_MODEL) -> str | None:
+    """Phrase a session transcript via a cheap LLM, or None on any failure."""
+    return build_session_exchange(transcript, model).output
+
+
 def _invoke(model: str, snippet: str) -> str:
-    """Call the model and return a cleaned one-line summary."""
+    """Call the model with the per-run prompt (kept for back-compat in tests)."""
+    return _invoke_with(model, snippet, _SYSTEM_PROMPT)
+
+
+def _invoke_with(model: str, snippet: str, system_prompt: str) -> str:
+    """Call the model with the given system prompt and return one clean line."""
     from langchain.chat_models import init_chat_model
 
     llm = init_chat_model(model)
-    response = llm.invoke([("system", _SYSTEM_PROMPT), ("human", snippet)])
+    response = llm.invoke([("system", system_prompt), ("human", snippet)])
     return _one_line(getattr(response, "content", str(response)))
 
 

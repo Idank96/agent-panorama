@@ -16,7 +16,7 @@ channels with one big reasoning LLM call each, then acts on the result:
 Usage (two terminals):
 
     agent-panorama serve --open
-    python examples/live_demo_candidate_pipeline.py
+    python examples/multi_step/candidate_pipeline.py
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from agent_panorama.live.serde import WIRE_VERSION, run_to_dict
 from agent_panorama.live.transport import post_run

@@ -67,3 +67,44 @@ def test_build_exchange_records_errors(monkeypatch: pytest.MonkeyPatch) -> None:
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def test_summarize_session_uses_session_prompt(monkeypatch) -> None:
+    captured = {}
+
+    def fake_invoke_with(model: str, snippet: str, system_prompt: str) -> str:
+        captured["prompt"] = system_prompt
+        return "Helped the student with moon phases."
+
+    monkeypatch.setattr(summarize, "_invoke_with", fake_invoke_with)
+    result = summarize.summarize_session("1. asked: why? → no tools → result: because")
+    assert result == "Helped the student with moon phases."
+    assert captured["prompt"] == summarize._SESSION_SYSTEM_PROMPT
+
+
+def test_summarize_session_caps_input(monkeypatch) -> None:
+    seen = {}
+
+    def fake_invoke_with(model: str, snippet: str, system_prompt: str) -> str:
+        seen["len"] = len(snippet)
+        return "ok"
+
+    monkeypatch.setattr(summarize, "_invoke_with", fake_invoke_with)
+    summarize.summarize_session("x" * 5000)
+    assert seen["len"] == summarize.MAX_INPUT_CHARS
+
+
+def test_summarize_session_swallows_errors(monkeypatch) -> None:
+    def boom(model: str, snippet: str, system_prompt: str) -> str:
+        raise RuntimeError("no api key")
+
+    monkeypatch.setattr(summarize, "_invoke_with", boom)
+    exchange = summarize.build_session_exchange("some transcript")
+    assert exchange.output is None
+    assert "no api key" in (exchange.error or "")
+
+
+def test_summarize_session_empty_transcript() -> None:
+    exchange = summarize.build_session_exchange("   ")
+    assert exchange.output is None
+    assert "empty transcript" in (exchange.error or "")

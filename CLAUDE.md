@@ -119,6 +119,31 @@ dependency weight, deliberately:
   which collides with the tracked `.gitkeep`. **Build the frontend before `uv build`**
   when cutting a release; verify with `unzip -l dist/*.whl | grep static/index.html`.
 
+## Session aggregation (v0.3.x): the feed's unit is (session, actor)
+
+A multi-turn conversation is ONE feed entry, not N. The pieces:
+
+- **Identity**: `AgentRun.session_id`/`user_id`. Langfuse parser reads top-level
+  `sessionId`/`userId` (metadata fallback); LangSmith parser reads `extra.metadata`
+  (`thread_id`/`session_id`/`user_id`) and **deliberately ignores top-level `session_id`**
+  (that's the tracer project id). The live handler reads invoke-config `metadata`
+  (`thread_id` arrives automatically from LangGraph). `--session` filtering now matches the
+  real field first.
+- **Grouping** (`analysis`): `session_group_key(run)` → `"session:{agent_key}:{session}:{actor}"`
+  — also the aggregated item's `run_id`, deliberately stable across rebuilds (frontend
+  selection/decisions key on it). `_build_feed` partitions sessionless runs (one item each,
+  unchanged) from session groups (`_to_group_item`): worst-of outcome, latest-turn timestamp,
+  summed tokens/retries/cost, `Interactions: N · x ok · y failed` fact, `turn_count`/`run_ids`.
+  Rollup rates stay per-run; `AgentRollup.sessions` counts distinct conversations.
+- **LLM phrasing is enrichment, not analysis**: `build_report` stays pure with a deterministic
+  session line; `summarize.build_session_exchange` (session prompt via `_invoke_with`) phrases
+  the transcript from `analysis.session_transcript`. Batch: `core.apply_session_summaries`
+  runs after `rebuild_feed` (which would otherwise clobber it) and logs to `llm_calls.log`.
+  Live: ingest spawns a daemon thread, caches per `(group_id, turn_count)` in `RunStore`,
+  `/api/report` applies the cache — never blocks ingest, never re-summarizes per poll.
+  Failures (no provider extra / key) degrade to the deterministic line; phrasing needs a
+  provider extra (e.g. `[gemini]` + GOOGLE_API_KEY in `.env`).
+
 ## The hard part: real-world Langfuse parsing
 
 `parsers/langfuse.py` and `parsers/common.py` carry the non-obvious knowledge, learned

@@ -86,9 +86,12 @@ class PanoramaCallbackHandler(_BaseHandler):
         root = self._register(run_id, parent_run_id)
         if parent_run_id is not None:
             return
+        session_id, user_id = _identity(kwargs)
         run = AgentRun(
             run_id=str(run_id),
             name=_chain_name(serialized, kwargs),
+            session_id=session_id,
+            user_id=user_id,
             input_text=summarize_request(inputs),
             start_time=_now(),
         )
@@ -272,6 +275,20 @@ class PanoramaCallbackHandler(_BaseHandler):
         run.steps = fallback_steps(run)
         payload = {"version": WIRE_VERSION, "run": run_to_dict(run)}
         transport.post_run(self._ingest_url, payload, timeout=self._timeout)
+
+
+def _identity(kwargs: dict) -> tuple[str | None, str | None]:
+    """Extract session and user ids from callback metadata.
+
+    LangGraph propagates ``thread_id`` into callback metadata; apps can also
+    pass explicit ``session_id``/``user_id`` via the invoke config metadata.
+    """
+    metadata = kwargs.get("metadata")
+    if not isinstance(metadata, dict):
+        return None, None
+    session = metadata.get("session_id") or metadata.get("thread_id")
+    user = metadata.get("user_id") or metadata.get("actor")
+    return (str(session) if session else None, str(user) if user else None)
 
 
 def _chain_name(serialized: Any, kwargs: dict) -> str:

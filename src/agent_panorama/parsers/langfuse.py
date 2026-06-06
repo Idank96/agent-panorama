@@ -102,9 +102,12 @@ def _normalize_trace(item: dict) -> dict:
 def _parse_trace(trace: dict) -> AgentRun:
     """Convert a single Langfuse trace dict into an :class:`AgentRun`."""
     observations = _sorted_observations(trace.get("observations") or [])
+    session_id, user_id = _identity(trace)
     run = AgentRun(
         run_id=str(trace.get("id", "")),
         name=str(trace.get("name") or "agent"),
+        session_id=session_id,
+        user_id=user_id,
         input_text=summarize_request(trace.get("input")),
         output_text=summarize_outcome(trace.get("output")),
         start_time=parse_time(trace.get("timestamp") or trace.get("createdAt")),
@@ -118,6 +121,29 @@ def _parse_trace(trace: dict) -> AgentRun:
     run.steps = _build_steps(observations, run)
     _backfill_times(run, observations)
     return run
+
+
+def _identity(trace: dict) -> tuple[str | None, str | None]:
+    """Extract the session and user ids a trace was recorded under.
+
+    Langfuse traces carry ``sessionId``/``userId`` at the top level; some
+    exporters tuck them into ``metadata`` instead, so both spots are checked.
+    """
+    metadata = trace.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    session = _first_str(trace, metadata, ("sessionId", "session_id"))
+    user = _first_str(trace, metadata, ("userId", "user_id"))
+    return session, user
+
+
+def _first_str(trace: dict, metadata: dict, keys: tuple[str, ...]) -> str | None:
+    """Return the first truthy value for ``keys`` in the trace, then metadata."""
+    for source in (trace, metadata):
+        for key in keys:
+            value = source.get(key)
+            if value:
+                return str(value)
+    return None
 
 
 def _merge_tool_calls(executed_calls: list[ToolCall], gen_calls: list[ToolCall]) -> list[ToolCall]:

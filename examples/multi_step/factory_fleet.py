@@ -15,7 +15,7 @@ Imitates the trace *shape* of a two-level agent system:
 Usage (two terminals):
 
     agent-panorama serve --open
-    python examples/live_demo_factory_fleet.py
+    python examples/multi_step/factory_fleet.py
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from agent_panorama.live.serde import WIRE_VERSION, run_to_dict
 from agent_panorama.live.transport import post_run

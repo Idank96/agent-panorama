@@ -16,6 +16,12 @@ export interface BackendFeedItem {
   summary: string;
   facts: [string, string][];
   anomalies: string[];
+  // Session aggregation (v0.3.x): present on entries that roll up a whole
+  // (session, actor) conversation; turn_count > 1 marks an aggregate.
+  session_id?: string | null;
+  actor?: string | null;
+  turn_count?: number;
+  run_ids?: string[];
 }
 
 export interface BackendReport {

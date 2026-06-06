@@ -97,6 +97,8 @@ class AgentRun:
 
     run_id: str
     name: str
+    session_id: str | None = None
+    user_id: str | None = None
     input_text: str = ""
     output_text: str = ""
     result_summary: str = ""
@@ -153,7 +155,12 @@ class DecisionLogEntry:
 
 @dataclass
 class FeedItem:
-    """One cross-agent activity-feed entry, derived from a single run."""
+    """One cross-agent activity-feed entry.
+
+    Derived from a single run, or — when runs share a ``(session_id, actor)``
+    pair — from the whole session: ``turn_count > 1`` marks an aggregate whose
+    ``run_id`` is a stable group key and whose ``run_ids`` lists the turns.
+    """
 
     run_id: str
     agent_name: str
@@ -168,6 +175,10 @@ class FeedItem:
     summary: str
     facts: list[tuple[str, str]] = field(default_factory=list)
     anomalies: list[str] = field(default_factory=list)
+    session_id: str | None = None
+    actor: str | None = None
+    turn_count: int = 1
+    run_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -184,6 +195,7 @@ class AgentRollup:
     retry_rate: float
     total_tokens: int
     total_cost_usd: float | None
+    sessions: int = 0
 
 
 @dataclass
