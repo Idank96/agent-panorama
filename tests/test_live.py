@@ -295,7 +295,7 @@ def test_server_aggregates_session_and_applies_cached_phrase(monkeypatch) -> Non
     from agent_panorama.live.server import RunStore, create_app
 
     monkeypatch.setattr(
-        "agent_panorama.summarize.summarize_session",
+        "agent_panorama.layers.summary.summarize_session",
         lambda transcript, model: "Helped the student across the session.",
     )
     store = RunStore()
@@ -327,7 +327,7 @@ def test_ingest_skips_summary_for_sessionless_runs(monkeypatch) -> None:
 
     calls: list[str] = []
     monkeypatch.setattr(
-        "agent_panorama.summarize.summarize_session",
+        "agent_panorama.layers.summary.summarize_session",
         lambda transcript, model: calls.append(transcript) or "phrase",
     )
     store = RunStore()

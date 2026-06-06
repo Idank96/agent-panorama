@@ -16,7 +16,7 @@ from .models import AgentRun, Report
 from .render import render
 
 if TYPE_CHECKING:
-    from .summarize import SummaryExchange
+    from .layers.summary import SummaryExchange
 
 _EXTENSIONS = {"md": ".md", "html": ".html", "json": ".json"}
 
@@ -78,7 +78,7 @@ def _summarize_results(report: Report, config: ReportConfig, output_dir: Path) -
     """
     if config.detail != "minimal":
         return
-    from .summarize import build_exchange
+    from .layers.summary import build_exchange
 
     exchanges = []
     for run in report.runs:
@@ -103,7 +103,7 @@ def apply_session_summaries(report: Report, config: ReportConfig, output_dir: Pa
         output_dir: Directory receiving the LLM audit log.
     """
     from .analysis import session_transcript
-    from .summarize import build_session_exchange
+    from .layers.summary import build_session_exchange
 
     runs_by_id = {run.run_id: run for run in report.runs}
     exchanges = []

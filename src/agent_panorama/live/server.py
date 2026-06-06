@@ -149,7 +149,7 @@ def _summarize_session_into_cache(
     store: RunStore, config: ReportConfig, group_id: str, turns: list[AgentRun]
 ) -> None:
     """Phrase one session and cache the result (background thread body)."""
-    from ..summarize import summarize_session
+    from ..layers.summary import summarize_session
 
     phrase = summarize_session(session_transcript(turns), config.summarize_model)
     if phrase:
