@@ -14,6 +14,15 @@ export and get clean Markdown + a self-contained HTML report that explains, in
 business language, what your agents did, what they decided, and anything that
 looks off.
 
+Two layers over the same conversations answer the two questions every manager
+asks:
+
+- **The summarization layer — "what happened?"** Tool calls, retries, outcomes,
+  tokens, and cost, phrased in plain English.
+- **The value layer — "was it worth it?"** An LLM judge scores each conversation
+  against *your* definition of value (your domain, your user goal, your success
+  criteria) and reports the value delivered, the value lost, and what to fix.
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard — a cross-agent activity feed in plain English" width="100%">
 </p>
@@ -113,7 +122,8 @@ matched). `outcome` is one of `success`, `human-escalated`, `failure`, `unknown`
 {
   "generated_at": "2026-05-31T09:42:00+00:00",
   "time_range": { "start": "…", "end": "…" },
-  "totals":     { "runs": 4, "steps": 7, "tokens": 3990, "cost_usd": 0.0134 },
+  "totals":     { "runs": 4, "steps": 7, "tokens": 3990, "cost_usd": 0.0134,
+                  "value": null },           // value summary when the value layer is on
   "feed": [                                  // one entry per run, newest first
     {
       "run_id": "…", "agent_name": "research-assistant",
@@ -123,7 +133,8 @@ matched). `outcome` is one of `success`, `human-escalated`, `failure`, `unknown`
       "retry_count": 0, "anomaly_count": 0,
       "tokens": 1234, "cost_usd": 0.006,
       "summary": "…", "facts": [["Steps", "5"], ["Retries", "0"]],
-      "anomalies": []
+      "anomalies": [],
+      "value": null                          // ValueJudgment when judged (see value layer)
     }
   ],
   "rollups": [                               // one per agent
@@ -132,7 +143,9 @@ matched). `outcome` is one of `success`, `human-escalated`, `failure`, `unknown`
       "runs": 1, "actions": 5,
       "success_rate": 1.0, "escalation_rate": 0.0,
       "failure_rate": 0.0, "retry_rate": 0.0,
-      "total_tokens": 1234, "total_cost_usd": 0.006
+      "total_tokens": 1234, "total_cost_usd": 0.006,
+      "judged": 0, "avg_value_score": null,  // value layer metrics (null when off)
+      "valuable_rate": null, "cost_per_valuable_usd": null
     }
   ],
   "decision_log": [                          // consequential actions across agents
@@ -395,6 +408,53 @@ dashboard. More demos live in [`examples/`](examples/), organized by
 complexity (`one_step/`, `two_step/`, `multi_step/`) — including a real
 LangChain example in `examples/one_step/langchain_agent.py`.
 
+## The value layer (v0.4) — was it worth it?
+
+The activity feed tells you what your agents *did*. The value layer tells you
+whether it *mattered* — judged against **your** definition of value, not a
+generic rubric. An LLM judge reads each conversation (batch exports and live
+mode alike) and produces a `ValueJudgment`: scores 0–10, the outcome in your
+domain language, the concrete moments value was delivered or lost, actionable
+fixes, and a pass/fail verdict per success criterion.
+
+Enable it by adding a `value:` block to your YAML config (no new install — it
+uses the same provider extra and API key as `--summarize`):
+
+```yaml
+value:
+  judge_model: google_genai:gemini-2.5-flash   # default; any init_chat_model id
+  max_judgments: 50            # hard cap per report — the cost guard
+  include_single_runs: true    # false = judge only multi-turn sessions
+  default:                     # your definition of value (the generic fallback)
+    domain: customer support
+    user_goal: resolve the user's issue without human escalation
+    success_criteria:
+      - issue resolved in the conversation
+    custom_dimensions:
+      self_service: Did the user finish without needing a human?
+  contexts:                    # per-agent overrides, keyed by agent_key
+    study-tutor:
+      domain: education
+      user_goal: the student understands the concept
+```
+
+A fleet rarely has one goal, so contexts are **per agent**: each agent's entry
+merges field-wise over `default`. With `model_prices` also configured, every
+agent gets the number managers actually want — **cost per valuable
+conversation** (total spend ÷ conversations scoring ≥ 6).
+
+In the dashboard this appears as a second **Value** view (it shows up in the
+sidebar only when something was judged): fleet averages, a per-agent value
+table, and conversations sorted lowest-value first — because the manager's job
+is finding lost value. Judged feed cards carry a score pill, and the detail
+panel shows the full verdict.
+
+Cost notes: each judgment is one capped LLM call (transcript hard-capped at
+~8k chars); `max_judgments` bounds batch reports, and live mode caches one
+judgment per conversation, re-judging only when a new turn arrives. Every call
+is audited to `llm_calls.log`. Without a provider/key, judging degrades
+silently — the report still generates, just unjudged.
+
 ## Roadmap
 
 `agent-panorama` starts as a report generator and is growing into an **oversight
@@ -427,12 +487,19 @@ did, decided, and got wrong. More than logs, across more than one agent.
 - `agent-panorama serve` — a local server with the dashboard bundled in
 - Runs stream in as they finish; feed, rollups, and totals update live
 
-**📈 v0.4 — Trends & regressions**
+**✅ v0.4 — The value layer: was it worth it?**
+- LLM-as-judge scores every conversation against *your* value definition
+  (domain, user goal, success criteria, custom dimensions — per agent)
+- Value delivered / value lost / recommended fixes, cited from the transcript
+- A second dashboard view: avg value score, valuable rate, and
+  **cost per valuable conversation**
+
+**📈 v0.5 — Trends & regressions**
 - Track rates over time, not just a point-in-time snapshot
 - Flag regressions (escalations or retries spiking vs. a baseline)
 - Period-over-period comparison ("this week vs. last")
 
-**🔌 v0.5 — More sources & deeper detail**
+**🔌 v0.6 — More sources & deeper detail**
 - OpenTelemetry / OpenInference and raw OpenAI-style logs
 - Optionally fetch full input/output from the Langfuse API to enrich
   decision-log parameters

@@ -55,3 +55,24 @@ model_prices:
   claude-3-5-sonnet:
     input: 3.00
     output: 15.00
+
+# Opt-in value layer (LLM-as-judge): scores each conversation 0-10 against
+# YOUR definition of value, reporting value delivered/lost, fixes, and a
+# verdict per success criterion. Needs the same provider extra + API key as
+# --summarize. Omit this block entirely to keep the value layer off.
+#
+# value:
+#   judge_model: google_genai:gemini-2.5-flash  # any init_chat_model id
+#   max_judgments: 50           # hard cap per report (cost guard)
+#   include_single_runs: true   # false = judge only multi-turn sessions
+#   default:                    # fallback value definition for every agent
+#     domain: customer support
+#     user_goal: resolve the user's issue without human escalation
+#     success_criteria:
+#       - issue resolved in the conversation
+#     custom_dimensions:
+#       self_service: Did the user finish without needing a human?
+#   contexts:                   # per-agent overrides, keyed by agent_key
+#     study-tutor:
+#       domain: education
+#       user_goal: the student understands the concept
