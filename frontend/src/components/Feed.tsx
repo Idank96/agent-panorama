@@ -25,7 +25,8 @@ export function ScorePill({ score }: { score: number }) {
   );
 }
 
-export function AgentBadge({ agent }: { agent: AgentMeta }) {
+export function AgentBadge({ agent }: { agent?: AgentMeta }) {
+  if (!agent) return null;
   return (
     <span
       className="ap-badge"

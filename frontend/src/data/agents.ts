@@ -10,10 +10,10 @@ export const AGENTS: Record<string, AgentMeta> = {
     accent: "#4b6b9a",
     tint: "#eef2f8",
   },
-  hr: {
-    id: "hr",
-    name: "HR Agent",
-    short: "HR",
+  support: {
+    id: "support",
+    name: "Support Agent",
+    short: "SU",
     health: "green",
     accent: "#4f8a6e",
     tint: "#eef5f1",
