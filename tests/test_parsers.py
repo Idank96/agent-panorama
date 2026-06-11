@@ -162,16 +162,20 @@ if __name__ == "__main__":
 def test_langfuse_extracts_session_and_user() -> None:
     from agent_panorama.parsers import langfuse
 
-    trace = {"id": "t1", "name": "tutor", "sessionId": "sess-1", "userId": "student-1"}
+    trace = {"id": "t1", "name": "kb-assistant", "sessionId": "sess-1", "userId": "user-1"}
     run = langfuse.parse(trace)[0]
     assert run.session_id == "sess-1"
-    assert run.user_id == "student-1"
+    assert run.user_id == "user-1"
 
 
 def test_langfuse_falls_back_to_metadata_identity() -> None:
     from agent_panorama.parsers import langfuse
 
-    trace = {"id": "t1", "name": "tutor", "metadata": {"session_id": "m-sess", "user_id": "m-user"}}
+    trace = {
+        "id": "t1",
+        "name": "kb-assistant",
+        "metadata": {"session_id": "m-sess", "user_id": "m-user"},
+    }
     run = langfuse.parse(trace)[0]
     assert run.session_id == "m-sess"
     assert run.user_id == "m-user"
@@ -182,20 +186,20 @@ def test_langsmith_ignores_project_session_id() -> None:
 
     root = {
         "id": "r1",
-        "name": "tutor",
+        "name": "kb-assistant",
         "run_type": "chain",
         "session_id": "project-uuid-not-a-conversation",
-        "extra": {"metadata": {"thread_id": "thread-1", "user_id": "student-1"}},
+        "extra": {"metadata": {"thread_id": "thread-1", "user_id": "user-1"}},
     }
     run = langsmith.parse([root])[0]
     assert run.session_id == "thread-1"
-    assert run.user_id == "student-1"
+    assert run.user_id == "user-1"
 
 
 def test_langsmith_no_metadata_means_no_session() -> None:
     from agent_panorama.parsers import langsmith
 
-    root = {"id": "r1", "name": "tutor", "run_type": "chain", "session_id": "project-uuid"}
+    root = {"id": "r1", "name": "kb-assistant", "run_type": "chain", "session_id": "project-uuid"}
     run = langsmith.parse([root])[0]
     assert run.session_id is None
     assert run.user_id is None

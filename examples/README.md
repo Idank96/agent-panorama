@@ -27,9 +27,9 @@ python examples/<tier>/<demo>.py     # terminal 2
 
 | Demo | Shape |
 |---|---|
-| `study_tutor_session.py` | A 4-turn RAG tutoring session (one student, one card): cited retrievals, a fallback chain, a recursion-limit failure, a no-tool follow-up |
-| `factory_fleet.py` | Orchestrator → sub-agent → tools: routing LLM, long-polling scheduler tool (slow-run anomaly), composite health check, human-approval escalation |
-| `candidate_pipeline.py` | A scheduled review pipeline: big analyzer LLM calls, an escalation ladder (reminder → human handoff), retries, and a hard failure |
+| `kb_assistant_session.py` | A 4-turn RAG support session (one user, one card): cited retrievals, a fallback chain, a recursion-limit failure, a no-tool follow-up |
+| `delivery_fleet.py` | Orchestrator → sub-agent → tools: routing LLM, long-polling scheduler tool (slow-run anomaly), composite health check, human-approval escalation |
+| `support_escalation.py` | A scheduled review pipeline: big analyzer LLM calls, an escalation ladder (reminder → human handoff), retries, and a hard failure |
 
 ## Top level
 

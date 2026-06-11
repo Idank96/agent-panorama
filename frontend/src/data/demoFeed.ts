@@ -29,26 +29,26 @@ export const demoFeed: FeedEntry[] = [
   },
   {
     id: "e2",
-    agent: "hr",
+    agent: "support",
     action:
-      "Sent technical assignment to candidate Yael Friedman (Senior Backend role)",
+      "Issued refund for order #10482 (duplicate charge)",
     time: "18m ago",
     fullTime: "May 31, 2026 · 9:26 AM",
     status: "completed",
     summary:
-      "Dispatched the standard backend take-home with a 5-day deadline and logged it to the ATS.",
+      "Confirmed the duplicate charge, issued the refund, and logged it to the ticket.",
     facts: [
-      ["Candidate", "Yael Friedman"],
-      ["Role", "Senior Backend Engineer"],
-      ["Assignment", "Distributed rate-limiter (take-home)"],
-      ["Deadline", "June 5, 2026 · 11:59 PM"],
-      ["ATS record", "Updated — stage: Technical"],
+      ["Order", "#10482"],
+      ["Issue", "Duplicate charge"],
+      ["Refund amount", "$129.00"],
+      ["Resolved", "June 5, 2026 · 11:59 PM"],
+      ["Ticket record", "Updated — stage: Resolved"],
     ],
     tokens: { used: 1840, cost: "$0.022" },
     policy: {
-      rule: "Standard assignment dispatch",
+      rule: "Standard refund dispatch",
       detail:
-        "Sending pre-approved take-home assignments to screened candidates requires no human sign-off.",
+        "Issuing pre-approved refunds for verified duplicate charges requires no human sign-off.",
     },
   },
   {
@@ -76,25 +76,25 @@ export const demoFeed: FeedEntry[] = [
   },
   {
     id: "e4",
-    agent: "hr",
-    action: "Flagged candidate David Cohen for human review",
+    agent: "support",
+    action: "Flagged order #10318 for human review",
     time: "1h ago",
     fullTime: "May 31, 2026 · 8:51 AM",
     status: "pending",
     summary:
-      "Resume scoring fell inside the ambiguous band — escalating to a recruiter before advancing.",
+      "Refund scoring fell inside the ambiguous band — escalating to a support lead before advancing.",
     facts: [
-      ["Candidate", "David Cohen"],
-      ["Role", "Staff Data Engineer"],
+      ["Order", "#10318"],
+      ["Issue", "Disputed charge"],
       ["Match score", "0.61 (review band: 0.55–0.70)"],
-      ["Reason", "Strong skills, non-standard career gap"],
-      ["Suggested action", "Advance to phone screen"],
+      ["Reason", "Valid claim, non-standard refund window"],
+      ["Suggested action", "Approve partial refund"],
     ],
     tokens: { used: 2410, cost: "$0.029" },
     policy: {
       rule: "Ambiguous scores require human review",
       detail:
-        "Candidates scoring inside the review band cannot be advanced or rejected by the agent alone.",
+        "Orders scoring inside the review band cannot be refunded or rejected by the agent alone.",
     },
   },
   {

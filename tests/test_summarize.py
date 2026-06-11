@@ -74,11 +74,11 @@ def test_summarize_session_uses_session_prompt(monkeypatch) -> None:
 
     def fake_invoke_with(model: str, snippet: str, system_prompt: str) -> str:
         captured["prompt"] = system_prompt
-        return "Helped the student with moon phases."
+        return "Helped the user with the SSO reset."
 
     monkeypatch.setattr(summarize, "_invoke_with", fake_invoke_with)
     result = summarize.summarize_session("1. asked: why? → no tools → result: because")
-    assert result == "Helped the student with moon phases."
+    assert result == "Helped the user with the SSO reset."
     assert captured["prompt"] == summarize._SESSION_SYSTEM_PROMPT
 
 

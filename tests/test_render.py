@@ -45,27 +45,27 @@ def test_markdown_shows_step_narrative() -> None:
 
 
 def test_minimal_detail_condenses_result() -> None:
-    raw = "📋 Here are all the cutting stations in the plant: | Station | Type | | --- | --- |"
+    raw = "📋 Here are all the open support tickets: | Station | Type | | --- | --- |"
     report = Report(runs=[AgentRun(run_id="r", name="agent", output_text=raw)], decision_log=[])
     minimal = render(report, ReportConfig(detail="minimal"), "md")
     standard = render(report, ReportConfig(detail="standard"), "md")
-    assert "**Result:** Here are all the cutting stations in the plant." in minimal
+    assert "**Result:** Here are all the open support tickets." in minimal
     assert "| Station |" not in minimal  # data table dropped
     assert "| Station |" in standard  # standard keeps the full result
 
 
 def test_minimal_prefers_llm_summary_when_present() -> None:
-    raw = "📋 Here are all the cutting stations in the plant: | Station | Type |"
+    raw = "📋 Here are all the open support tickets: | Station | Type |"
     run = AgentRun(
         run_id="r",
         name="agent",
         output_text=raw,
-        result_summary="Showed all the cutting stations in the plant.",
+        result_summary="Showed all the open support tickets.",
     )
     report = Report(runs=[run], decision_log=[])
     minimal = render(report, ReportConfig(detail="minimal"), "md")
     standard = render(report, ReportConfig(detail="standard"), "md")
-    assert "**Result:** Showed all the cutting stations in the plant." in minimal
+    assert "**Result:** Showed all the open support tickets." in minimal
     # Standard ignores the summary and keeps the full result.
     assert "| Station |" in standard
 

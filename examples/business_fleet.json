@@ -141,15 +141,15 @@
   },
   {
     "id": "biz-004",
-    "name": "recruiting-agent",
+    "name": "support-agent",
     "timestamp": "2026-05-31T11:15:00.000Z",
-    "input": {"task": "Screen candidate #4821 for the staff engineer role."},
-    "output": {"content": "Candidate #4821 scored inside the ambiguous review band, so the application was flagged for human review before advancing."},
+    "input": {"task": "Triage support ticket #4821 about a failed payment."},
+    "output": {"content": "Ticket #4821 scored inside the ambiguous review band, so the ticket was flagged for human review before advancing."},
     "observations": [
       {
         "id": "biz-004-a",
         "type": "GENERATION",
-        "name": "score-candidate",
+        "name": "score-ticket",
         "startTime": "2026-05-31T11:15:01.000Z",
         "endTime": "2026-05-31T11:15:03.500Z",
         "model": "claude-3-5-sonnet-20241022",
@@ -159,10 +159,10 @@
       {
         "id": "biz-004-b",
         "type": "SPAN",
-        "name": "score_resume",
+        "name": "score_ticket",
         "startTime": "2026-05-31T11:15:03.600Z",
         "endTime": "2026-05-31T11:15:04.000Z",
-        "input": {"candidate_id": "4821", "role": "staff-engineer"},
+        "input": {"ticket_id": "4821", "category": "failed-payment"},
         "output": {"score": 0.62, "band": "review"},
         "level": "DEFAULT"
       },
@@ -172,7 +172,7 @@
         "name": "human_handoff",
         "startTime": "2026-05-31T11:15:04.100Z",
         "endTime": "2026-05-31T11:15:04.400Z",
-        "input": {"reason": "ambiguous score band", "queue": "recruiting"},
+        "input": {"reason": "ambiguous score band", "queue": "support"},
         "output": {"ticket_id": "rev-9012"},
         "level": "DEFAULT"
       }

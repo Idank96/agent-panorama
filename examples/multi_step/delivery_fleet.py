@@ -1,4 +1,4 @@
-"""Live demo: an orchestrator + sub-agents fleet (manufacturing-planning style).
+"""Live demo: an orchestrator + sub-agents fleet (logistics / delivery-dispatch style).
 
 Imitates the trace *shape* of a two-level agent system:
 
@@ -15,7 +15,7 @@ Imitates the trace *shape* of a two-level agent system:
 Usage (two terminals):
 
     agent-panorama serve --open
-    python examples/multi_step/factory_fleet.py
+    python examples/multi_step/delivery_fleet.py
 """
 
 from __future__ import annotations
@@ -44,15 +44,15 @@ def _orchestrator_run(now: datetime) -> AgentRun:
     start = now - timedelta(minutes=6)
     return AgentRun(
         run_id=f"fleet-orchestrator-{_BATCH}",
-        name="plant-operations-agent",
-        input_text="Schedule all jobs due this week into next week.",
+        name="dispatch-operations-agent",
+        input_text="Schedule all deliveries due this week into next week.",
         output_text="Routed to the scheduling agent; its answer streams to the user.",
         start_time=start,
         end_time=start + timedelta(seconds=3),
         tool_calls=[
             ToolCall(
                 name="call_scheduling_agent",
-                arguments={"request": "Schedule all jobs due this week into next week."},
+                arguments={"request": "Schedule all deliveries due this week into next week."},
                 output="delegated (response streamed directly to the user)",
                 timestamp=start + timedelta(seconds=1),
                 latency_ms=1800.0,
@@ -77,10 +77,10 @@ def _scheduling_run(now: datetime) -> AgentRun:
     return AgentRun(
         run_id=f"fleet-scheduling-{_BATCH}",
         name="scheduling-agent",
-        input_text="Schedule all jobs due this week into next week.",
+        input_text="Schedule all deliveries due this week into next week.",
         output_text=(
-            "Scheduled 45 of 47 jobs for next week. 2 could not be placed: one task "
-            "already started, one station lacks capacity on Tuesday."
+            "Scheduled 45 of 47 deliveries for next week. 2 could not be placed: one "
+            "delivery already started, one route lacks capacity on Tuesday."
         ),
         start_time=start,
         end_time=start + timedelta(seconds=65),
@@ -88,7 +88,7 @@ def _scheduling_run(now: datetime) -> AgentRun:
             ToolCall(
                 name="get_work_items",
                 arguments={"due_within_days": 7},
-                output="47 work items with task trees",
+                output="47 deliveries with stop trees",
                 timestamp=start + timedelta(seconds=2),
                 latency_ms=850.0,
             ),
@@ -102,7 +102,7 @@ def _scheduling_run(now: datetime) -> AgentRun:
             ToolCall(
                 name="get_schedule_failures",
                 arguments={"job_id": "job-demo"},
-                output="2 failures: task already started; insufficient station capacity",
+                output="2 failures: delivery already started; insufficient route capacity",
                 timestamp=start + timedelta(seconds=50),
                 latency_ms=9000.0,
             ),
@@ -149,10 +149,10 @@ def _health_check_run(now: datetime) -> AgentRun:
     start = now - timedelta(minutes=3)
     return AgentRun(
         run_id=f"fleet-health-{_BATCH}",
-        name="plant-operations-agent",
-        input_text="How is production health right now?",
+        name="dispatch-operations-agent",
+        input_text="How is dispatch health right now?",
         output_text=(
-            "All clear: scheduler idle, 3 open warnings, no overdue jobs, station capacity at 71%."
+            "All clear: scheduler idle, 3 open warnings, no overdue deliveries, route capacity at 71%."
         ),
         start_time=start,
         end_time=start + timedelta(seconds=11),
@@ -160,7 +160,7 @@ def _health_check_run(now: datetime) -> AgentRun:
             ToolCall(
                 name="run_production_health_check",
                 arguments={},
-                output="aggregated 4 probes: alerts, scheduler state, overdue jobs, capacity",
+                output="aggregated 4 probes: alerts, scheduler state, overdue deliveries, capacity",
                 timestamp=start + timedelta(seconds=1),
                 latency_ms=6200.0,
             )
@@ -191,16 +191,16 @@ def _approval_run(now: datetime) -> AgentRun:
     start = now - timedelta(minutes=1, seconds=30)
     return AgentRun(
         run_id=f"fleet-approval-{_BATCH}",
-        name="maintenance-agent",
-        input_text="Cancel job J-1042, the mold cracked.",
-        output_text="Cancellation needs a human sign-off; handed the decision to the operator.",
+        name="dispatch-recovery-agent",
+        input_text="Cancel delivery J-1042, the customer is unreachable.",
+        output_text="Cancellation needs a human sign-off; handed the decision to the dispatcher.",
         start_time=start,
         end_time=start + timedelta(seconds=8),
         tool_calls=[
             ToolCall(
                 name="human_handoff",
                 arguments={"action": "cancel_job", "job_id": "J-1042"},
-                output="approval requested from the floor operator",
+                output="approval requested from the on-call dispatcher",
                 timestamp=start + timedelta(seconds=3),
                 latency_ms=400.0,
             )

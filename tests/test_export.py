@@ -83,9 +83,9 @@ def test_aggregated_session_serializes_group_fields() -> None:
     runs = [
         AgentRun(
             run_id=f"t{i}",
-            name="tutor",
+            name="kb-assistant",
             session_id="sess-1",
-            user_id="student-1",
+            user_id="user-1",
             output_text="answered",
         )
         for i in (1, 2)
@@ -94,6 +94,6 @@ def test_aggregated_session_serializes_group_fields() -> None:
     item = data["feed"][0]
     assert item["turn_count"] == 2
     assert item["session_id"] == "sess-1"
-    assert item["actor"] == "student-1"
+    assert item["actor"] == "user-1"
     assert item["run_ids"] == ["t1", "t2"]
     assert data["rollups"][0]["sessions"] == 1

@@ -256,10 +256,10 @@ anomaly_thresholds:
 By default the report uses **no LLM** - it just reformats trace data. But in
 `--detail minimal`, a long final answer (e.g. a big Markdown table) is condensed
 with a simple heuristic, which keeps the agent's own wording ("Here are all the
-cutting stations in the plant"). If you'd rather get a crisp past-tense action
+open support tickets"). If you'd rather get a crisp past-tense action
 line that keeps the identifying details and the bottom-line takeaway
-("**Analyzed** John Doe's interview channel - assignment delivered, waiting on
-his reply."), enable the opt-in `--summarize` flag, which rewrites just the
+("**Resolved** Acme Corp's billing question - refund issued, ticket closed."),
+enable the opt-in `--summarize` flag, which rewrites just the
 result via a cheap model.
 
 It is intentionally tiny: a ~40-token fixed system prompt, **at most ~250 input
@@ -400,15 +400,15 @@ so the feed aggregates by **(session, actor)**. Pass them in the invoke config
 ```python
 agent.invoke(inputs, config={
     "callbacks": [PanoramaCallbackHandler()],
-    "metadata": {"session_id": "lesson-42", "user_id": "student-7"},
+    "metadata": {"session_id": "support-42", "user_id": "user-7"},
 })
 ```
 
 All turns of that pair collapse into a single feed entry with an
 `Interactions: 4 · 3 ok · 1 failed` breakdown, the worst turn's outcome as the
 status, and summed tokens/cost. An LLM layer then phrases the whole session in
-one line - keeping the identifying details and the outcome, e.g. *"Reviewed Jane
-Smith's interview channel - she answered the follow-up, ball is back with the
+one line - keeping the identifying details and the outcome, e.g. *"Worked
+through Acme Corp's onboarding - integration is live, handed back to their
 team."* - using the same cheap model as `--summarize` (install a provider extra such as
 `agent-panorama[gemini]` and set its API key; without one, a deterministic
 summary line is shown instead). Override the model with
@@ -447,9 +447,9 @@ value:
     custom_dimensions:
       self_service: Did the user finish without needing a human?
   contexts:                    # per-agent overrides, keyed by agent_key
-    study-tutor:
-      domain: education
-      user_goal: the student understands the concept
+    kb-assistant:
+      domain: customer support
+      user_goal: the user resolves their issue
 ```
 
 A fleet rarely has one goal, so contexts are **per agent**: each agent's entry

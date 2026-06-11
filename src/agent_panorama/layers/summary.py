@@ -1,7 +1,7 @@
 """Optional LLM-backed result phrasing.
 
 Rewrites a run's final output into one short, past-tense action sentence (e.g.
-"Showed all the cutting stations in the plant."). This is the only part of the
+"Showed all the open support tickets."). This is the only part of the
 package that may call an external model, and it is strictly opt-in: nothing here
 runs unless the caller passes ``summarize=True``.
 
@@ -28,21 +28,21 @@ MAX_INPUT_CHARS = 1000
 _SYSTEM_PROMPT = (
     "Rewrite the agent's final output as ONE short past-tense sentence stating "
     "what the agent did AND the bottom-line takeaway. Always keep identifying "
-    "details (person, channel, project, or account names) and the concrete "
+    "details (person, account, project, or ticket names) and the concrete "
     "conclusion, so a manager scanning hundreds of entries can tell them apart. "
-    "Plain language, no markdown, no preamble. Example: 'Analyzed John Doe's "
-    "interview channel — assignment delivered, waiting on his reply.'"
+    "Plain language, no markdown, no preamble. Example: 'Resolved Acme Corp's "
+    "billing question — refund issued, ticket closed.'"
 )
 
 _SESSION_SYSTEM_PROMPT = (
     "You are given a numbered transcript of one user's multi-turn session with "
     "an agent; each line reads 'asked X → tools → result Y'. Write ONE short "
     "past-tense sentence summarizing what the agent did across the session AND "
-    "the bottom-line outcome. Always keep identifying details (person, channel, "
-    "project, or account names) and the concrete conclusion, so a manager "
+    "the bottom-line outcome. Always keep identifying details (person, account, "
+    "project, or ticket names) and the concrete conclusion, so a manager "
     "scanning hundreds of entries can tell them apart. Plain language, no "
-    "markdown, no preamble. Example: 'Reviewed Jane Smith's interview channel — "
-    "she answered the follow-up, ball is back with the team.'"
+    "markdown, no preamble. Example: 'Worked through Acme Corp's onboarding — "
+    "integration is live, handed back to their team.'"
 )
 
 

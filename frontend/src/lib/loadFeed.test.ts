@@ -195,13 +195,13 @@ describe("value layer mapping", () => {
     goal_completion: 8,
     response_quality: 7,
     efficiency: 6,
-    outcome: "student got unstuck",
+    outcome: "user got unblocked",
     rationale: "cited evidence",
-    value_delivered: ["explained moon phases"],
+    value_delivered: ["explained the SSO reset"],
     value_lost: [],
     recommended_fixes: [],
     custom_scores: {},
-    criteria_verdicts: { "understood the concept": true },
+    criteria_verdicts: { "issue resolved": true },
   };
 
   it("passes a judgment through and defaults to null when absent", () => {

@@ -71,18 +71,18 @@ class _FakeMessage:
 
 def test_summarize_request_from_langchain_message_objects() -> None:
     # Live mode hands over raw LangGraph state with message *objects*, not dicts.
-    payload = {"messages": [_FakeMessage("human", "Analyze channel t-ai-jane")]}
-    assert summarize_request(payload) == "Analyze channel t-ai-jane"
+    payload = {"messages": [_FakeMessage("human", "Look up the weather in Paris")]}
+    assert summarize_request(payload) == "Look up the weather in Paris"
 
 
 def test_summarize_outcome_from_langchain_message_objects() -> None:
     payload = {
         "messages": [
             _FakeMessage("human", "status?"),
-            _FakeMessage("ai", "Candidate is waiting on us."),
+            _FakeMessage("ai", "The order shipped."),
         ]
     }
-    assert summarize_outcome(payload) == "Candidate is waiting on us."
+    assert summarize_outcome(payload) == "The order shipped."
 
 
 def test_summarize_request_does_not_dump_secrets() -> None:

@@ -95,8 +95,8 @@ def _turn(
     output: str = "Answered the question.",
     *,
     session: str = "sess-1",
-    user: str | None = "student-1",
-    name: str = "tutor",
+    user: str | None = "user-1",
+    name: str = "kb-assistant",
     errors: list[str] | None = None,
 ) -> AgentRun:
     return AgentRun(
@@ -119,8 +119,8 @@ def test_session_turns_aggregate_into_one_item() -> None:
     assert item.turn_count == 3
     assert item.run_ids == ["t1", "t2", "t3"]
     assert item.session_id == "sess-1"
-    assert item.actor == "student-1"
-    assert item.run_id == "session:tutor:sess-1:student-1"
+    assert item.actor == "user-1"
+    assert item.run_id == "session:kb-assistant:sess-1:user-1"
 
 
 def test_sessionless_runs_stay_one_per_run() -> None:
@@ -132,8 +132,8 @@ def test_sessionless_runs_stay_one_per_run() -> None:
 
 def test_different_actors_split_into_separate_sessions() -> None:
     runs = [
-        _turn("t1", _dt(20), user="student-1"),
-        _turn("t2", _dt(21), user="student-2"),
+        _turn("t1", _dt(20), user="user-1"),
+        _turn("t2", _dt(21), user="user-2"),
     ]
     report = build_report(runs, ReportConfig())
     assert len(report.feed) == 2
@@ -168,15 +168,15 @@ def test_group_timestamp_is_latest_turn() -> None:
 def test_group_action_is_deterministic_fallback() -> None:
     runs = [_turn("t1", _dt(20)), _turn("t2", _dt(21), output="Final answer here.")]
     report = build_report(runs, ReportConfig())
-    assert report.feed[0].action == "Helped student-1: 2 interactions — Final answer here."
+    assert report.feed[0].action == "Helped user-1: 2 interactions — Final answer here."
 
 
 def test_rollup_counts_sessions_and_keeps_runs() -> None:
     runs = [
         _turn("t1", _dt(20)),
         _turn("t2", _dt(21)),
-        _turn("u1", _dt(22), session="sess-2", user="student-2"),
-        AgentRun(run_id="solo", name="tutor", output_text="ok", start_time=_dt(23)),
+        _turn("u1", _dt(22), session="sess-2", user="user-2"),
+        AgentRun(run_id="solo", name="kb-assistant", output_text="ok", start_time=_dt(23)),
     ]
     report = build_report(runs, ReportConfig())
     rollup = report.rollups[0]
@@ -191,13 +191,13 @@ def test_session_transcript_format_and_cap() -> None:
     turns = [
         AgentRun(
             run_id="t1",
-            name="tutor",
+            name="kb-assistant",
             session_id="s",
             input_text="Why is the sky blue?",
             output_text="Explained scattering.",
             tool_calls=[ToolCall(name="web_search", arguments={})],
         ),
-        AgentRun(run_id="t2", name="tutor", session_id="s", error_messages=["timeout"]),
+        AgentRun(run_id="t2", name="kb-assistant", session_id="s", error_messages=["timeout"]),
     ]
     transcript = session_transcript(turns)
     lines = transcript.splitlines()
@@ -215,14 +215,14 @@ def test_apply_session_summaries_overwrites_action(tmp_path, monkeypatch) -> Non
 
     def fake_exchange(transcript: str, model: str) -> SummaryExchange:
         return SummaryExchange(
-            model, "sys", transcript, output="Helped the student with quiz prep."
+            model, "sys", transcript, output="Helped the user with a billing question."
         )
 
     import agent_panorama.layers.summary as summarize_module
 
     monkeypatch.setattr(summarize_module, "build_session_exchange", fake_exchange)
     core.apply_session_summaries(report, ReportConfig(), tmp_path)
-    assert report.feed[0].action == "Helped the student with quiz prep."
+    assert report.feed[0].action == "Helped the user with a billing question."
     assert (tmp_path / "llm_calls.log").exists()
 
 
@@ -249,6 +249,6 @@ def test_single_turn_session_reads_like_a_normal_run() -> None:
     report = build_report(runs, ReportConfig())
     item = report.feed[0]
     assert item.turn_count == 1
-    assert item.run_id == "session:tutor:sess-1:student-1"
+    assert item.run_id == "session:kb-assistant:sess-1:user-1"
     assert item.action == "Reset the password."
     assert "interactions" not in item.action

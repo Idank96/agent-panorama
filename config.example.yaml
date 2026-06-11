@@ -73,6 +73,6 @@ model_prices:
 #     custom_dimensions:
 #       self_service: Did the user finish without needing a human?
 #   contexts:                   # per-agent overrides, keyed by agent_key
-#     study-tutor:
-#       domain: education
-#       user_goal: the student understands the concept
+#     kb-assistant:
+#       domain: customer support
+#       user_goal: the user resolves their issue

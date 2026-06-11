@@ -31,12 +31,14 @@ def _dt(minute: int) -> datetime:
     return _BASE + timedelta(minutes=minute)
 
 
-def _run(run_id: str, minute: int, session: str | None = None, name: str = "tutor") -> AgentRun:
+def _run(
+    run_id: str, minute: int, session: str | None = None, name: str = "kb-assistant"
+) -> AgentRun:
     return AgentRun(
         run_id=run_id,
         name=name,
         session_id=session,
-        user_id="student-1" if session else None,
+        user_id="user-1" if session else None,
         input_text=f"question {run_id}",
         output_text=f"answer {run_id}",
         start_time=_dt(minute),
@@ -50,7 +52,7 @@ def _judgment(score: int = 8) -> ValueJudgment:
         goal_completion=score,
         response_quality=score,
         efficiency=score,
-        outcome="student understood the topic",
+        outcome="user resolved the issue",
         rationale="cited evidence",
     )
 
@@ -79,7 +81,7 @@ def test_value_yaml_block_parses_contexts_and_defaults() -> None:
                 "max_judgments": 5,
                 "include_single_runs": False,
                 "default": {"domain": "support", "success_criteria": ["resolved"]},
-                "contexts": {"tutor": {"user_goal": "student understands"}},
+                "contexts": {"kb-assistant": {"user_goal": "user resolves the issue"}},
             }
         }
     )
@@ -87,9 +89,9 @@ def test_value_yaml_block_parses_contexts_and_defaults() -> None:
     assert config.value.judge_model == "openai:gpt-5-nano"
     assert config.value.max_judgments == 5
     assert config.value.include_single_runs is False
-    resolved = config.value.context_for("tutor")
+    resolved = config.value.context_for("kb-assistant")
     assert resolved is not None
-    assert resolved.user_goal == "student understands"
+    assert resolved.user_goal == "user resolves the issue"
     assert resolved.domain == "support"
     assert config.value.context_for("other-agent").domain == "support"
 
@@ -210,7 +212,7 @@ def test_serialized_judgment_round_trips() -> None:
     data = serialize_report(report, config)
     judged = data["feed"][0]["value"]
     assert judged["overall_score"] == 7
-    assert judged["outcome"] == "student understood the topic"
+    assert judged["outcome"] == "user resolved the issue"
     assert data["rollups"][0]["judged"] == 1
     assert data["totals"]["value"]["valuable_rate"] == 1.0
 

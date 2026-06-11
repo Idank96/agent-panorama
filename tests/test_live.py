@@ -238,11 +238,11 @@ if __name__ == "__main__":
 
 
 def test_serde_carries_session_identity() -> None:
-    run = AgentRun(run_id="r1", name="tutor", session_id="sess-9", user_id="student-3")
+    run = AgentRun(run_id="r1", name="kb-assistant", session_id="sess-9", user_id="user-3")
     restored = run_from_dict(run_to_dict(run))
     assert restored.session_id == "sess-9"
-    assert restored.user_id == "student-3"
-    legacy = run_from_dict({"run_id": "old", "name": "tutor"})
+    assert restored.user_id == "user-3"
+    legacy = run_from_dict({"run_id": "old", "name": "kb-assistant"})
     assert legacy.session_id is None and legacy.user_id is None
 
 
@@ -251,16 +251,16 @@ def test_handler_captures_session_identity_from_metadata(capture: _Capture) -> N
     handler = PanoramaCallbackHandler()
     root = uuid.uuid4()
     handler.on_chain_start(
-        {"name": "tutor"},
+        {"name": "kb-assistant"},
         "question",
         run_id=root,
         parent_run_id=None,
-        metadata={"thread_id": "thread-7", "user_id": "student-2"},
+        metadata={"thread_id": "thread-7", "user_id": "user-2"},
     )
     handler.on_chain_end({"result": "answered"}, run_id=root)
     run = run_from_dict(capture.posts[0][1]["run"])
     assert run.session_id == "thread-7"
-    assert run.user_id == "student-2"
+    assert run.user_id == "user-2"
 
 
 def test_store_summary_cache_keeps_latest_turn_count() -> None:
@@ -279,9 +279,9 @@ def test_store_summary_cache_keeps_latest_turn_count() -> None:
 def _session_run(run_id: str, output: str = "answered") -> AgentRun:
     return AgentRun(
         run_id=run_id,
-        name="tutor",
+        name="kb-assistant",
         session_id="sess-live",
-        user_id="student-9",
+        user_id="user-9",
         input_text=f"question {run_id}",
         output_text=output,
         start_time=datetime(2026, 6, 5, 9, 0, 0, tzinfo=timezone.utc),
@@ -296,7 +296,7 @@ def test_server_aggregates_session_and_applies_cached_phrase(monkeypatch) -> Non
 
     monkeypatch.setattr(
         "agent_panorama.layers.summary.summarize_session",
-        lambda transcript, model: "Helped the student across the session.",
+        lambda transcript, model: "Helped the user across the session.",
     )
     store = RunStore()
     client = TestClient(create_app(ReportConfig(), store))
@@ -307,7 +307,7 @@ def test_server_aggregates_session_and_applies_cached_phrase(monkeypatch) -> Non
         assert posted.status_code == 200
 
     deadline = time.monotonic() + 5
-    while store.get_summary("session:tutor:sess-live:student-9") is None:
+    while store.get_summary("session:kb-assistant:sess-live:user-9") is None:
         assert time.monotonic() < deadline, "summary thread never cached a phrase"
         time.sleep(0.02)
 
@@ -315,8 +315,8 @@ def test_server_aggregates_session_and_applies_cached_phrase(monkeypatch) -> Non
     sessions = [f for f in report["feed"] if f["turn_count"] > 1]
     assert len(sessions) == 1
     assert sessions[0]["turn_count"] == 2
-    assert sessions[0]["action"] == "Helped the student across the session."
-    assert sessions[0]["actor"] == "student-9"
+    assert sessions[0]["action"] == "Helped the user across the session."
+    assert sessions[0]["actor"] == "user-9"
 
 
 def test_ingest_skips_summary_for_sessionless_runs(monkeypatch) -> None:
@@ -345,7 +345,7 @@ def _judgment(score: int = 8):
         goal_completion=score,
         response_quality=score,
         efficiency=score,
-        outcome="student got unstuck",
+        outcome="user got unblocked",
         rationale="evidence",
     )
 
@@ -388,15 +388,15 @@ def test_server_judges_session_and_reports_value(monkeypatch) -> None:
         )
 
     deadline = time.monotonic() + 5
-    while store.get_judgment("session:tutor:sess-live:student-9") is None:
+    while store.get_judgment("session:kb-assistant:sess-live:user-9") is None:
         assert time.monotonic() < deadline, "judgment thread never cached a verdict"
         time.sleep(0.02)
 
     report = client.get("/api/report").json()
     session = next(item for item in report["feed"] if item["turn_count"] > 1)
     assert session["value"]["overall_score"] == 7
-    assert session["value"]["outcome"] == "student got unstuck"
-    rollup = next(r for r in report["rollups"] if r["agent_key"] == "tutor")
+    assert session["value"]["outcome"] == "user got unblocked"
+    rollup = next(r for r in report["rollups"] if r["agent_key"] == "kb-assistant")
     assert rollup["judged"] == 1
     assert rollup["avg_value_score"] == 7
     assert report["totals"]["value"]["judged"] == 1

@@ -1,22 +1,22 @@
-"""Live demo: a scheduled review pipeline with an escalation ladder (HR style).
+"""Live demo: a scheduled review pipeline with an escalation ladder (support style).
 
-Imitates the trace *shape* of a daily pipeline that reviews many conversation
-channels with one big reasoning LLM call each, then acts on the result:
+Imitates the trace *shape* of a daily pipeline that reviews many support ticket
+queues with one big reasoning LLM call each, then acts on the result:
 
-- **Healthy channel**: fetch conversation -> analyze -> log status (success).
-- **Quiet channel**: analysis says "needs attention" -> send a reminder.
-- **Day-7 silent channel**: the escalation ladder tops out -> hand off to a
+- **Healthy ticket**: fetch ticket -> analyze -> log status (success).
+- **Quiet ticket**: analysis says "needs attention" -> send a reminder.
+- **Day-7 silent ticket**: the escalation ladder tops out -> hand off to a
   human (`human_handoff`), which the dashboard shows as escalated.
 - **Flaky LLM**: the analyzer call errors once and is retried (retry signal).
 - **Flaky messaging API**: three failed posts then a success — the same tool
   failing and later succeeding flags both retries and a recovered fallback,
   and >2 retries trips the anomaly threshold.
-- **Dead channel**: the fetch itself fails with no recovery (failed run).
+- **Dead ticket**: the fetch itself fails with no recovery (failed run).
 
 Usage (two terminals):
 
     agent-panorama serve --open
-    python examples/multi_step/candidate_pipeline.py
+    python examples/multi_step/support_escalation.py
 """
 
 from __future__ import annotations
@@ -40,9 +40,9 @@ ANALYZER_MODEL = "claude-sonnet-4-5"
 
 
 def _fetch(start: datetime, messages: int) -> ToolCall:
-    """A conversation-fetch tool call."""
+    """A ticket-fetch tool call."""
     return ToolCall(
-        name="fetch_conversation",
+        name="fetch_ticket",
         arguments={"limit": 100},
         output=f"{messages} messages over the last 14 days",
         timestamp=start + timedelta(seconds=1),
@@ -53,7 +53,7 @@ def _fetch(start: datetime, messages: int) -> ToolCall:
 def _analyze(start: datetime, *, offset: int = 2) -> LLMCall:
     """The big single-call analyzer (long context, structured JSON out)."""
     return LLMCall(
-        name="analyze_conversation",
+        name="analyze_ticket",
         model=ANALYZER_MODEL,
         input_tokens=4800,
         output_tokens=850,
@@ -63,20 +63,20 @@ def _analyze(start: datetime, *, offset: int = 2) -> LLMCall:
 
 
 def _healthy_run(now: datetime) -> AgentRun:
-    """A channel that's on track: analyze and log, nothing else."""
+    """A ticket that's on track: analyze and log, nothing else."""
     start = now - timedelta(minutes=8)
     return AgentRun(
         run_id=f"pipeline-healthy-{_BATCH}",
-        name="candidate-tracker",
-        input_text="Daily review: channel #candidate-alpha",
-        output_text="On track: candidate shared progress yesterday, next sync booked.",
+        name="ticket-tracker",
+        input_text="Daily review: ticket #tickets-alpha",
+        output_text="On track: customer shared logs yesterday, next reply booked.",
         start_time=start,
         end_time=start + timedelta(seconds=14),
         tool_calls=[
             _fetch(start, 86),
             ToolCall(
                 name="log_status",
-                arguments={"status": "on-track", "phase": "working-on-task"},
+                arguments={"status": "on-track", "phase": "working-on-fix"},
                 output="tracker row updated",
                 timestamp=start + timedelta(seconds=12),
                 latency_ms=600.0,
@@ -87,13 +87,13 @@ def _healthy_run(now: datetime) -> AgentRun:
 
 
 def _reminder_run(now: datetime) -> AgentRun:
-    """A quiet channel: first rung of the escalation ladder (a reminder)."""
+    """A quiet ticket: first rung of the escalation ladder (a reminder)."""
     start = now - timedelta(minutes=6, seconds=30)
     return AgentRun(
         run_id=f"pipeline-reminder-{_BATCH}",
-        name="candidate-tracker",
-        input_text="Daily review: channel #candidate-bravo",
-        output_text="Candidate silent for 3 days; sent the first friendly reminder.",
+        name="ticket-tracker",
+        input_text="Daily review: ticket #tickets-bravo",
+        output_text="Customer silent for 3 days; sent the first friendly reminder.",
         start_time=start,
         end_time=start + timedelta(seconds=16),
         tool_calls=[
@@ -101,13 +101,13 @@ def _reminder_run(now: datetime) -> AgentRun:
             ToolCall(
                 name="send_reminder",
                 arguments={"rung": 1, "silent_days": 3},
-                output="reminder posted to the channel",
+                output="reminder posted to the ticket",
                 timestamp=start + timedelta(seconds=13),
                 latency_ms=800.0,
             ),
             ToolCall(
                 name="log_status",
-                arguments={"status": "silent", "phase": "working-on-task"},
+                arguments={"status": "silent", "phase": "working-on-fix"},
                 output="tracker row updated",
                 timestamp=start + timedelta(seconds=15),
                 latency_ms=550.0,
@@ -122,9 +122,9 @@ def _escalation_run(now: datetime) -> AgentRun:
     start = now - timedelta(minutes=5)
     return AgentRun(
         run_id=f"pipeline-escalate-{_BATCH}",
-        name="candidate-tracker",
-        input_text="Daily review: channel #candidate-charlie",
-        output_text="Silent for 7 days after two reminders; escalated to the hiring team.",
+        name="ticket-tracker",
+        input_text="Daily review: ticket #tickets-charlie",
+        output_text="Silent for 7 days after two reminders; escalated to the support lead.",
         start_time=start,
         end_time=start + timedelta(seconds=15),
         tool_calls=[
@@ -132,7 +132,7 @@ def _escalation_run(now: datetime) -> AgentRun:
             ToolCall(
                 name="human_handoff",
                 arguments={"reason": "7 days silent after 2 reminders"},
-                output="alert posted to the hiring-team channel",
+                output="alert posted to the support-lead channel",
                 timestamp=start + timedelta(seconds=13),
                 latency_ms=750.0,
             ),
@@ -145,7 +145,7 @@ def _flaky_llm_run(now: datetime) -> AgentRun:
     """The analyzer errors once and is retried — a recovered run with 1 retry."""
     start = now - timedelta(minutes=3, seconds=30)
     failed = LLMCall(
-        name="analyze_conversation",
+        name="analyze_ticket",
         model=ANALYZER_MODEL,
         input_tokens=4700,
         output_tokens=0,
@@ -156,16 +156,16 @@ def _flaky_llm_run(now: datetime) -> AgentRun:
     )
     return AgentRun(
         run_id=f"pipeline-flaky-llm-{_BATCH}",
-        name="candidate-tracker",
-        input_text="Daily review: channel #candidate-delta",
-        output_text="On track after retry: candidate submitted the assignment repo.",
+        name="ticket-tracker",
+        input_text="Daily review: ticket #tickets-delta",
+        output_text="On track after retry: customer confirmed the fix resolved it.",
         start_time=start,
         end_time=start + timedelta(seconds=26),
         tool_calls=[
             _fetch(start, 64),
             ToolCall(
                 name="trigger_code_review",
-                arguments={"repo": "submitted-assignment"},
+                arguments={"repo": "proposed-fix"},
                 output="review workflow queued",
                 timestamp=start + timedelta(seconds=23),
                 latency_ms=900.0,
@@ -191,8 +191,8 @@ def _flaky_messaging_run(now: datetime) -> AgentRun:
     ]
     return AgentRun(
         run_id=f"pipeline-flaky-msg-{_BATCH}",
-        name="candidate-tracker",
-        input_text="Daily review: channel #candidate-echo",
+        name="ticket-tracker",
+        input_text="Daily review: ticket #tickets-echo",
         output_text="Second reminder delivered after rate-limit retries.",
         start_time=start,
         end_time=start + timedelta(seconds=30),
@@ -202,7 +202,7 @@ def _flaky_messaging_run(now: datetime) -> AgentRun:
             ToolCall(
                 name="send_reminder",
                 arguments={"rung": 2, "attempt": 4},
-                output="reminder posted to the channel",
+                output="reminder posted to the ticket",
                 timestamp=start + timedelta(seconds=24),
                 latency_ms=900.0,
             ),
@@ -211,27 +211,27 @@ def _flaky_messaging_run(now: datetime) -> AgentRun:
     )
 
 
-def _dead_channel_run(now: datetime) -> AgentRun:
+def _dead_ticket_run(now: datetime) -> AgentRun:
     """The fetch fails outright and nothing recovers — a failed run."""
     start = now - timedelta(seconds=45)
     return AgentRun(
         run_id=f"pipeline-dead-{_BATCH}",
-        name="candidate-tracker",
-        input_text="Daily review: channel #candidate-foxtrot",
+        name="ticket-tracker",
+        input_text="Daily review: ticket #tickets-foxtrot",
         output_text="",
         start_time=start,
         end_time=start + timedelta(seconds=6),
         tool_calls=[
             ToolCall(
-                name="fetch_conversation",
+                name="fetch_ticket",
                 arguments={"limit": 100},
                 timestamp=start + timedelta(seconds=1),
                 latency_ms=5000.0,
                 status="error",
-                error="channel_not_found: bot was removed from the channel",
+                error="ticket_not_found: bot lost access to the ticket",
             )
         ],
-        error_messages=["channel_not_found: bot was removed from the channel"],
+        error_messages=["ticket_not_found: bot lost access to the ticket"],
     )
 
 
@@ -244,7 +244,7 @@ def main() -> None:
         _escalation_run(now),
         _flaky_llm_run(now),
         _flaky_messaging_run(now),
-        _dead_channel_run(now),
+        _dead_ticket_run(now),
     ]
     for run in runs:
         delivered = post_run(ENDPOINT, {"version": WIRE_VERSION, "run": run_to_dict(run)})

@@ -66,7 +66,7 @@ class StubChatModel:
 
 
 def _turn(run_id: str, ask: str, answer: str) -> AgentRun:
-    return AgentRun(run_id=run_id, name="tutor", input_text=ask, output_text=answer)
+    return AgentRun(run_id=run_id, name="kb-assistant", input_text=ask, output_text=answer)
 
 
 def _context() -> ValueContext:
@@ -161,9 +161,9 @@ def test_build_judge_messages_without_context_is_generic() -> None:
 
 def test_context_merged_over_default() -> None:
     default = _context()
-    override = ValueContext(user_goal="student understands the concept")
+    override = ValueContext(user_goal="user resolves their issue")
     merged = override.merged_over(default)
-    assert merged.user_goal == "student understands the concept"
+    assert merged.user_goal == "user resolves their issue"
     assert merged.domain == "insurance claims processing"
     assert merged.success_criteria == ["claim submitted in under 10 minutes"]
     assert ValueContext(domain="x").merged_over(None).domain == "x"
