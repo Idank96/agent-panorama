@@ -13,6 +13,11 @@ agents did, whether it was worth it, and what it cost. Point it at a Langfuse (o
 LangSmith) export (or add a one-line live callback) and get clean Markdown + a
 self-contained HTML report - and a local dashboard - in plain business language.
 
+**It's one line to switch on.** An engineer drops a single callback into your
+existing agents - no rebuild, no new infrastructure, no traces to wire up - and
+the live dashboard starts filling in. Works in any LangChain or LangGraph app today
+(more frameworks on the [roadmap](#roadmap)).
+
 **Three questions about any agent in production. Your existing tools answer the
 first two:**
 
@@ -513,7 +518,9 @@ did, decided, and got wrong. More than logs, across more than one agent.
 - Flag regressions (escalations or retries spiking vs. a baseline)
 - Period-over-period comparison ("this week vs. last")
 
-**🔌 v0.6 - More sources & deeper detail**
+**🔌 v0.6 - More frameworks & sources**
+- One-line callbacks/adapters for more agent frameworks - CrewAI, AutoGen / AG2,
+  the OpenAI Agents SDK, AWS Strands, and more (today: LangChain / LangGraph)
 - OpenTelemetry / OpenInference and raw OpenAI-style logs
 - Optionally fetch full input/output from the Langfuse API to enrich
   decision-log parameters
