@@ -61,6 +61,30 @@ def test_summarize_outcome_extracts_result_field() -> None:
     assert summarize_outcome({"report": "Daily summary ready."}) == "Daily summary ready."
 
 
+class _FakeMessage:
+    """Stand-in for a LangChain BaseMessage: .content and .type attributes."""
+
+    def __init__(self, type_: str, content: str) -> None:
+        self.type = type_
+        self.content = content
+
+
+def test_summarize_request_from_langchain_message_objects() -> None:
+    # Live mode hands over raw LangGraph state with message *objects*, not dicts.
+    payload = {"messages": [_FakeMessage("human", "Analyze channel t-ai-jane")]}
+    assert summarize_request(payload) == "Analyze channel t-ai-jane"
+
+
+def test_summarize_outcome_from_langchain_message_objects() -> None:
+    payload = {
+        "messages": [
+            _FakeMessage("human", "status?"),
+            _FakeMessage("ai", "Candidate is waiting on us."),
+        ]
+    }
+    assert summarize_outcome(payload) == "Candidate is waiting on us."
+
+
 def test_summarize_request_does_not_dump_secrets() -> None:
     # A state payload with no recognizable ask must not leak embedded secrets.
     state = {"config": {}, "slack_client": {"token": "xoxb-SECRET-123"}, "channels": []}

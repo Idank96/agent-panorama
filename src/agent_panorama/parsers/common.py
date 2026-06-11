@@ -208,6 +208,12 @@ def _message_role_content(message: object) -> tuple[str, str]:
     if isinstance(message, dict):
         role = str(message.get("type") or message.get("role") or "").lower()
         return (role, _content_text(message.get("content")))
+    content = getattr(message, "content", None)
+    if content is not None:
+        # Live LangChain/LangGraph message objects (HumanMessage, AIMessage, …)
+        # expose .content and .type ("human"/"ai"/"tool") as attributes.
+        role = str(getattr(message, "type", "") or getattr(message, "role", "")).lower()
+        return (role, _content_text(content))
     return ("", "")
 
 
