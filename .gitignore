@@ -38,8 +38,14 @@ trace-*.json
 # Secrets
 .env
 
-# Personal docs (not tracked)
+# Internal business / strategy / marketing docs — never commit
+business/
 idan_docs/
 kog.md
 MESSAGE.md
+MARKETING.md
+CLAUDE.md
 claude_docs/
+
+# Local demo / scratch config (not tracked)
+demo_config.yaml

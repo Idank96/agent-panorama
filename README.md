@@ -8,26 +8,37 @@
   <a href="https://github.com/Idank96/agent-panorama/actions/workflows/ci.yml"><img src="https://github.com/Idank96/agent-panorama/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
 </p>
 
-Turn raw LLM agent traces into a **human-readable Agent Activity Report** that a
-non-engineer can actually read. Point it at a Langfuse (or LangSmith) trace
-export and get clean Markdown + a self-contained HTML report that explains, in
-business language, what your agents did, what they decided, and anything that
-looks off.
+Turn raw LLM agent traces into a report a **manager** can actually read - what your
+agents did, whether it was worth it, and what it cost. Point it at a Langfuse (or
+LangSmith) export (or add a one-line live callback) and get clean Markdown + a
+self-contained HTML report - and a local dashboard - in plain business language.
 
-Two layers over the same conversations answer the two questions every manager
-asks:
+**Three questions about any agent in production. Your existing tools answer the
+first two:**
 
-- **The summarization layer — "what happened?"** Tool calls, retries, outcomes,
-  tokens, and cost, phrased in plain English.
-- **The value layer — "was it worth it?"** An LLM judge scores each conversation
-  against *your* definition of value (your domain, your user goal, your success
-  criteria) and reports the value delivered, the value lost, and what to fix.
+| | Question | Answered by |
+| --- | --- | --- |
+| | Does it run? | observability - traces, tokens, latency |
+| | Is it correct? | evals - scores on a test set |
+| **→** | **Is it worth it?** | **`agent-panorama`** |
+
+It answers the third - the one your CEO, client, or PM actually asks - across
+three rungs over the same conversations:
+
+- **Clarity - "what did they do?"** One plain-English feed across the fleet (or a
+  single agent): asked X → did Y → outcome. A 30-message chat becomes one line. No
+  spans, no JSON.
+- **Value - "was it worth it?"** An LLM judge scores each conversation against
+  *your* definition of value (your domain, your user goal, your success criteria)
+  and reports the value delivered, the value lost, and what to fix.
+- **Cost - "what did it cost?"** Tokens → dollars → **cost per valuable
+  conversation**, the ROI number nobody else gives you.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard — a cross-agent activity feed in plain English" width="100%">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard - a cross-agent activity feed in plain English" width="100%">
 </p>
 
-<p align="center"><em>The fleet view — one plain-English activity feed across every agent, with per-run details, outcomes, and cost.</em></p>
+<p align="center"><em>The fleet view - one plain-English activity feed across every agent, with per-run details, outcomes, and cost.</em></p>
 
 ## Why
 
@@ -209,18 +220,18 @@ payload = serialize_report(mem, load_config("config.yaml"))  # -> dict
 
 ## What's in a report
 
-- **Summary** — time range, total runs, total steps, total tokens (and total cost
+- **Summary** - time range, total runs, total steps, total tokens (and total cost
   when `model_prices` is set).
-- **Fleet activity feed** _(v0.2)_ — one scannable, newest-first line per run across
+- **Fleet activity feed** _(v0.2)_ - one scannable, newest-first line per run across
   every agent: who did what, in plain English, with outcome and timing.
-- **Per-agent rollups** _(v0.2)_ — one row per agent: runs, actions, and
+- **Per-agent rollups** _(v0.2)_ - one row per agent: runs, actions, and
   success / escalation / retry rates, plus tokens and cost.
-- **Per-agent section** — what it was asked to do, what it did step by step (graph
+- **Per-agent section** - what it was asked to do, what it did step by step (graph
   nodes / tool calls in plain English, at the chosen `--detail` level), final
   outcome, and a confidence signal (retries / fallback).
-- **Decision log** — a sortable table of every consequential action: timestamp,
+- **Decision log** - a sortable table of every consequential action: timestamp,
   agent, action, parameters summarized in plain English, outcome.
-- **Anomalies** — high retry counts, slow runs, high activity, errors, fallbacks.
+- **Anomalies** - high retry counts, slow runs, high activity, errors, fallbacks.
 
 ## Configuration
 
@@ -242,16 +253,18 @@ anomaly_thresholds:
 
 ## Plain-language result summaries (optional LLM)
 
-By default the report uses **no LLM** — it just reformats trace data. But in
+By default the report uses **no LLM** - it just reformats trace data. But in
 `--detail minimal`, a long final answer (e.g. a big Markdown table) is condensed
 with a simple heuristic, which keeps the agent's own wording ("Here are all the
 cutting stations in the plant"). If you'd rather get a crisp past-tense action
-line ("**Showed** all the cutting stations in the plant."), enable the opt-in
-`--summarize` flag, which rewrites just the result via a cheap model.
+line that keeps the identifying details and the bottom-line takeaway
+("**Analyzed** John Doe's interview channel - assignment delivered, waiting on
+his reply."), enable the opt-in `--summarize` flag, which rewrites just the
+result via a cheap model.
 
 It is intentionally tiny: a ~40-token fixed system prompt, **at most ~250 input
 tokens** (the result is hard-capped at 1,000 characters), and a ~25-token reply
-— roughly **300 tokens total per run**. On a free-tier model this costs nothing;
+- roughly **300 tokens total per run**. On a free-tier model this costs nothing;
 on the cheapest paid model it's a fraction of a cent.
 
 ### Setup
@@ -284,11 +297,11 @@ on the cheapest paid model it's a fraction of a cent.
    ```
 
 If the provider package or key is missing, summarization is skipped gracefully
-(you just get the heuristic line) — it never breaks report generation.
+(you just get the heuristic line) - it never breaks report generation.
 
-Every call is logged to **`<output>/llm_calls.log`** — the exact system prompt,
+Every call is logged to **`<output>/llm_calls.log`** - the exact system prompt,
 the input sent (with its character count), and the output (or error) for each
-run — so you can audit precisely what went to the model.
+run - so you can audit precisely what went to the model.
 
 ### Recommended models (cheapest first)
 
@@ -311,12 +324,12 @@ _Prices verified May 2026 against providers' official pricing pages; check them 
 
 ## Supported inputs
 
-- **Langfuse** trace exports — a single trace dict, the single-trace
+- **Langfuse** trace exports - a single trace dict, the single-trace
   `{"trace": {...}, "observations": [...]}` shape, a list of traces, or the
   `{"data": [...]}` list-API shape. Tool calls are read from `TOOL`
   observations (falling back to tool spans), and from `toolCalls` / OpenAI-style
   `tool_calls` declared on generations.
-- **LangSmith** run exports — a flat list (or `{"runs": [...]}`) of run nodes;
+- **LangSmith** run exports - a flat list (or `{"runs": [...]}`) of run nodes;
   each root run is flattened into one agent run.
 
 Token usage is read from the trace (`inputUsage`/`outputUsage` or
@@ -331,7 +344,7 @@ A manager-facing **Agent Panorama** dashboard lives in [`frontend/`](frontend/)
 when no JSON is present.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard — activity feed with per-run detail panel" width="100%">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/dashboard.png" alt="Agent Panorama dashboard - activity feed with per-run detail panel" width="100%">
 </p>
 
 See `frontend/README.md` for setup; in short:
@@ -342,7 +355,7 @@ cp report/report.json frontend/public/feed.json
 cd frontend && npm install && npm run dev
 ```
 
-## Live mode (v0.3) — continuous oversight
+## Live mode (v0.3) - continuous oversight
 
 Watch your agents **live** instead of from after-the-fact exports. One line in
 any LangChain / LangGraph app streams every completed run to a local dashboard:
@@ -360,27 +373,27 @@ pip install 'agent-panorama[live]'
 agent-panorama serve --open        # dashboard at http://localhost:8321
 ```
 
-Each run appears in the activity feed within seconds of finishing — outcome,
+Each run appears in the activity feed within seconds of finishing - outcome,
 tool calls, tokens, anomalies, and per-agent rollups all update live (the
 dashboard polls `/api/report` every 3 s).
 
 **Designed to be safe in the instrumented app:**
 
 - The handler ships with the base package and posts runs over the standard
-  library — your agent app never needs the server dependencies.
+  library - your agent app never needs the server dependencies.
 - Delivery never raises and never blocks beyond a 2 s timeout: if the dashboard
   is down, the app logs one warning and keeps working.
 - The server keeps runs in memory (`--max-runs` caps retention) and applies the
   same analysis as batch reports, so outcomes/anomalies match `generate`.
 
 Useful flags: `--port`, `--host`, `--config your.yaml` (same YAML as
-`generate` — tool descriptions, escalation tools, model prices), `--max-runs`.
+`generate` - tool descriptions, escalation tools, model prices), `--max-runs`.
 Point the handler elsewhere with `PanoramaCallbackHandler(endpoint=...)` or the
 `AGENT_PANORAMA_ENDPOINT` env var.
 
 ### Sessions: many turns, one feed entry
 
-A chat agent answering 4 questions is still doing *one thing* for *one user* —
+A chat agent answering 4 questions is still doing *one thing* for *one user* -
 so the feed aggregates by **(session, actor)**. Pass them in the invoke config
 (LangGraph's `thread_id` works automatically):
 
@@ -394,36 +407,37 @@ agent.invoke(inputs, config={
 All turns of that pair collapse into a single feed entry with an
 `Interactions: 4 · 3 ok · 1 failed` breakdown, the worst turn's outcome as the
 status, and summed tokens/cost. An LLM layer then phrases the whole session in
-one line — e.g. *"Helped the student understand moon phases."* — using the
-same cheap model as `--summarize` (install a provider extra such as
+one line - keeping the identifying details and the outcome, e.g. *"Reviewed Jane
+Smith's interview channel - she answered the follow-up, ball is back with the
+team."* - using the same cheap model as `--summarize` (install a provider extra such as
 `agent-panorama[gemini]` and set its API key; without one, a deterministic
 summary line is shown instead). Override the model with
 `serve --summarize-model ...`. Batch reports (`generate`) aggregate the same
-way — Langfuse's native `sessionId`/`userId` are picked up automatically.
+way - Langfuse's native `sessionId`/`userId` are picked up automatically.
 Runs without a session id stay one-entry-per-run.
 
 Try it without LangChain: start `agent-panorama serve --open`, then run
 `python examples/live_demo.py` to stream three synthetic runs into the
 dashboard. More demos live in [`examples/`](examples/), organized by
-complexity (`one_step/`, `two_step/`, `multi_step/`) — including a real
+complexity (`one_step/`, `two_step/`, `multi_step/`) - including a real
 LangChain example in `examples/one_step/langchain_agent.py`.
 
-## The value layer (v0.4) — was it worth it?
+## The value layer (v0.4) - was it worth it?
 
 The activity feed tells you what your agents *did*. The value layer tells you
-whether it *mattered* — judged against **your** definition of value, not a
+whether it *mattered* - judged against **your** definition of value, not a
 generic rubric. An LLM judge reads each conversation (batch exports and live
-mode alike) and produces a `ValueJudgment`: scores 0–10, the outcome in your
+mode alike) and produces a `ValueJudgment`: scores 0-10, the outcome in your
 domain language, the concrete moments value was delivered or lost, actionable
 fixes, and a pass/fail verdict per success criterion.
 
-Enable it by adding a `value:` block to your YAML config (no new install — it
+Enable it by adding a `value:` block to your YAML config (no new install - it
 uses the same provider extra and API key as `--summarize`):
 
 ```yaml
 value:
   judge_model: google_genai:gemini-2.5-flash   # default; any init_chat_model id
-  max_judgments: 50            # hard cap per report — the cost guard
+  max_judgments: 50            # hard cap per report - the cost guard
   include_single_runs: true    # false = judge only multi-turn sessions
   default:                     # your definition of value (the generic fallback)
     domain: customer support
@@ -440,12 +454,12 @@ value:
 
 A fleet rarely has one goal, so contexts are **per agent**: each agent's entry
 merges field-wise over `default`. With `model_prices` also configured, every
-agent gets the number managers actually want — **cost per valuable
+agent gets the number managers actually want - **cost per valuable
 conversation** (total spend ÷ conversations scoring ≥ 6).
 
 In the dashboard this appears as a second **Value** view (it shows up in the
 sidebar only when something was judged): fleet averages, a per-agent value
-table, and conversations sorted lowest-value first — because the manager's job
+table, and conversations sorted lowest-value first - because the manager's job
 is finding lost value. Judged feed cards carry a score pill, and the detail
 panel shows the full verdict.
 
@@ -453,25 +467,25 @@ Cost notes: each judgment is one capped LLM call (transcript hard-capped at
 ~8k chars); `max_judgments` bounds batch reports, and live mode caches one
 judgment per conversation, re-judging only when a new turn arrives. Every call
 is audited to `llm_calls.log`. Without a provider/key, judging degrades
-silently — the report still generates, just unjudged.
+silently - the report still generates, just unjudged.
 
 ## Roadmap
 
 `agent-panorama` starts as a report generator and is growing into an **oversight
-layer for fleets of agents** — a single pane of glass for everything your agents
+layer for fleets of agents** - a single pane of glass for everything your agents
 did, decided, and got wrong. More than logs, across more than one agent.
 
-**✅ v0.1 — Read one run clearly _(today)_**
+**✅ v0.1 - Read one run clearly _(today)_**
 - Langfuse + LangSmith trace ingestion
 - Plain-language per-agent summaries, decision log, anomalies
 - Markdown + self-contained HTML output; CLI and library API
 
-**✅ v0.2 — See the whole fleet (the panorama view)**
-- A unified **cross-agent activity feed** — one scannable timeline of what every
+**✅ v0.2 - See the whole fleet (the panorama view)**
+- A unified **cross-agent activity feed** - one scannable timeline of what every
   agent did, in plain English:
 
   ```text
-  Agent Activity — May 28, 14:30–15:00
+  Agent Activity - May 28, 14:30-15:00
 
   research-assistant    → searched the web, summarized 3 papers            ✓ success
   scheduling-assistant  → checked the calendar, handed the task to a human ⤴ escalated
@@ -482,30 +496,30 @@ did, decided, and got wrong. More than logs, across more than one agent.
 - Per-agent rollups: runs, actions, success / escalation / retry rates
 - Cross-agent decision log spanning every agent in the window
 
-**✅ v0.3 — Continuous oversight: the live dashboard**
+**✅ v0.3 - Continuous oversight: the live dashboard**
 - One-line LangChain/LangGraph integration (`PanoramaCallbackHandler`)
-- `agent-panorama serve` — a local server with the dashboard bundled in
+- `agent-panorama serve` - a local server with the dashboard bundled in
 - Runs stream in as they finish; feed, rollups, and totals update live
 
-**✅ v0.4 — The value layer: was it worth it?**
+**✅ v0.4 - The value layer: was it worth it?**
 - LLM-as-judge scores every conversation against *your* value definition
-  (domain, user goal, success criteria, custom dimensions — per agent)
+  (domain, user goal, success criteria, custom dimensions - per agent)
 - Value delivered / value lost / recommended fixes, cited from the transcript
 - A second dashboard view: avg value score, valuable rate, and
   **cost per valuable conversation**
 
-**📈 v0.5 — Trends & regressions**
+**📈 v0.5 - Trends & regressions**
 - Track rates over time, not just a point-in-time snapshot
 - Flag regressions (escalations or retries spiking vs. a baseline)
 - Period-over-period comparison ("this week vs. last")
 
-**🔌 v0.6 — More sources & deeper detail**
+**🔌 v0.6 - More sources & deeper detail**
 - OpenTelemetry / OpenInference and raw OpenAI-style logs
 - Optionally fetch full input/output from the Langfuse API to enrich
   decision-log parameters
 - Pluggable parser interface for custom trace formats
 
-**🎯 The vision — Full continuous oversight**
+**🎯 The vision - Full continuous oversight**
 - In-flight runs on the live dashboard (watch a run while it's still working)
 - Scheduled/continuous reports instead of one-off runs
 - Accountability views a non-engineer can sign off on (what happened, what needs
@@ -524,25 +538,25 @@ ruff check . && ruff format --check .
 
 ## Contributing
 
-Contributions are very welcome — and kept deliberately easy. No CLA, no strict
+Contributions are very welcome - and kept deliberately easy. No CLA, no strict
 process, no style police. If you use agents and want better reports, jump in.
 
 **Good first things to do:**
 - Add a parser for a trace format you use (see the registry in
-  `parsers/__init__.py` — write `parse(payload) -> list[AgentRun]` and register it;
+  `parsers/__init__.py` - write `parse(payload) -> list[AgentRun]` and register it;
   nothing downstream changes).
 - Improve a plain-language summary, fix a parsing edge case, or polish the report.
-- Open an issue with a (scrubbed) trace that doesn't render well — that alone helps a lot.
+- Open an issue with a (scrubbed) trace that doesn't render well - that alone helps a lot.
 
 **The whole flow:**
 1. Fork & branch.
 2. Make your change. Run `ruff check . && ruff format .` and `python tests/run_all_tests.py`
-   (a green suite is all that's expected — add a test if it makes sense, but don't sweat it).
-3. Open a PR. Rough is fine — we'll iterate together.
+   (a green suite is all that's expected - add a test if it makes sense, but don't sweat it).
+3. Open a PR. Rough is fine - we'll iterate together.
 
 Questions, ideas, half-finished patches: all welcome. Star the repo, open an issue,
 or just say hi. 🙌
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

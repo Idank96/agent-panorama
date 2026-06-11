@@ -1,9 +1,11 @@
-# Agent Panorama — Frontend
+# Agent Panorama - Frontend
 
-A manager-facing **fleet activity dashboard** for the `agent-panorama` toolkit. A
-three-column light-mode enterprise UI: agent roster sidebar, chronological activity
-feed, and an expanded detail panel with key/value facts, applied policy, token count,
-and dollar cost.
+The **manager-facing dashboard** for the `agent-panorama` toolkit - the front end of
+the Clarity → Value → Cost story: see what your agents did, whether it was worth it,
+and what it cost. A three-column light-mode UI: agent roster sidebar, a plain-English
+activity feed (Clarity), and an expanded detail panel with facts, outcome, tokens, and
+dollar cost. When the value layer is on, a second **Value** view surfaces per-conversation
+scores, value delivered / lost, and cost per valuable conversation.
 
 Stack: **Vite + React 18 + TypeScript** (no UI libraries; icons are inline SVG).
 
@@ -40,7 +42,7 @@ cp report/report.json frontend/public/feed.json
 npm run sync:feed
 ```
 
-Reload the app — it now renders real fleet data (tokens **and** dollar cost when the
+Reload the app - it now renders real fleet data (tokens **and** dollar cost when the
 backend was run with a `model_prices` config). If `public/feed.json` is missing or
 unparseable, the app silently falls back to the bundled demo data.
 
@@ -48,10 +50,10 @@ unparseable, the app silently falls back to the bundled demo data.
 
 ```
 src/
-  App.tsx              # wires nav, agent filter, search, decisions, tweaks
+  App.tsx              # wires nav, agent filter, search, decisions, value view
   main.tsx             # mounts <App/>, imports styles.css
   styles.css           # ported verbatim from the design bundle
-  types.ts             # Status, Outcome, AgentMeta, FeedEntry, Tweaks, Decision
+  types.ts             # Status, Outcome, AgentMeta, FeedEntry, Decision
   icons.tsx            # inline SVG icon set
   data/
     agents.ts          # AGENTS registry + resolveAgent() palette fallback + STATUS
@@ -59,8 +61,8 @@ src/
   components/
     Sidebar.tsx        # roster + nav
     Feed.tsx           # FeedCard, AgentBadge, StatusPill, top bar
-    DetailPanel.tsx    # expanded record (facts, policy, cost)
-    TweaksPanel.tsx    # floating accent/density/card/font controls
+    DetailPanel.tsx    # expanded record (facts, policy, cost, value verdict)
+    ValueView.tsx      # value view: scores, value delivered/lost, cost per valuable conversation
   lib/
     loadFeed.ts        # fetch feed.json → FeedEntry[]; demo fallback
     loadFeed.test.ts   # vitest unit tests for the mapping
