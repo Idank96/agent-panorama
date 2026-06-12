@@ -7,6 +7,7 @@ when it is missing.
 
 from __future__ import annotations
 
+import json
 import socket
 import threading
 import webbrowser
@@ -20,13 +21,30 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from ..analysis import apply_value_rollups, build_report, session_group_key, session_transcript
-from ..config import ReportConfig, load_config
+from ..config import (
+    ReportConfig,
+    load_config,
+    value_config_from_dict,
+    value_config_is_empty,
+    value_config_to_dict,
+)
 from ..export import serialize_report
+from ..layers.value.ontology import (
+    ARCHETYPES,
+    PRIMITIVES,
+    AgentMapping,
+    build_agent_mapping,
+    context_hash,
+    mapping_from_dict,
+    mapping_to_dict,
+)
 from ..models import AgentRun, Report, ValueJudgment
 from ..text import slugify
 from .serde import run_from_dict
 
 DEFAULT_PORT = 8321
+VALUE_CONFIG_FILE = "value_config.json"
+ONTOLOGY_MAP_FILE = "ontology_map.json"
 
 
 @dataclass
@@ -44,6 +62,7 @@ class RunStore:
     _runs: list[AgentRun] = field(default_factory=list)
     _summaries: dict[str, tuple[int, str]] = field(default_factory=dict)
     _judgments: dict[str, tuple[int, ValueJudgment]] = field(default_factory=dict)
+    _mappings: dict[str, tuple[str, AgentMapping]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def add(self, run: AgentRun) -> None:
@@ -85,20 +104,48 @@ class RunStore:
             cached = self._judgments.get(group_id)
             return cached[1] if cached else None
 
+    def clear_judgments(self) -> None:
+        """Drop all cached judgments (the value definition changed)."""
+        with self._lock:
+            self._judgments.clear()
 
-def create_app(config: ReportConfig, store: RunStore) -> FastAPI:
+    def cache_mapping(self, agent_key: str, ctx_hash: str, mapping: AgentMapping) -> None:
+        """Cache one agent's canonical mapping, keyed by its context hash."""
+        with self._lock:
+            self._mappings[agent_key] = (ctx_hash, mapping)
+
+    def mapping_hash(self, agent_key: str) -> str | None:
+        """Return the context hash the cached mapping was built from, if any."""
+        with self._lock:
+            cached = self._mappings.get(agent_key)
+            return cached[0] if cached else None
+
+    def mapping_entries(self) -> dict[str, tuple[str, AgentMapping]]:
+        """Return a copy of all cached (hash, mapping) entries by agent key."""
+        with self._lock:
+            return dict(self._mappings)
+
+    def clear_mappings(self) -> None:
+        """Drop all cached canonical mappings (the value layer was disabled)."""
+        with self._lock:
+            self._mappings.clear()
+
+
+def create_app(config: ReportConfig, store: RunStore, data_dir: Path | None = None) -> FastAPI:
     """Build the live-mode FastAPI application.
 
     Args:
         config: Report configuration applied when building each report.
         store: The run store backing the API.
+        data_dir: Directory the value-definition sidecars live in (defaults to
+            the current working directory).
 
     Returns:
         The configured FastAPI app.
     """
     app = FastAPI(title="agent-panorama live")
     _allow_cors(app)
-    _add_api_routes(app, config, store)
+    _add_api_routes(app, config, store, Path(data_dir or "."))
     _mount_static(app)
     return app
 
@@ -113,8 +160,8 @@ def _allow_cors(app: FastAPI) -> None:
     )
 
 
-def _add_api_routes(app: FastAPI, config: ReportConfig, store: RunStore) -> None:
-    """Register the ingest, report, and health endpoints."""
+def _add_api_routes(app: FastAPI, config: ReportConfig, store: RunStore, data_dir: Path) -> None:
+    """Register the ingest, report, value-config, and health endpoints."""
 
     @app.post("/api/runs")
     def ingest(body: dict) -> dict:
@@ -123,6 +170,7 @@ def _add_api_routes(app: FastAPI, config: ReportConfig, store: RunStore) -> None
         store.add(run)
         _schedule_session_summary(run, store, config)
         _schedule_value_judgment(run, store, config)
+        _schedule_mapping(run, store, config, data_dir)
         return {"ok": True, "run_id": run.run_id}
 
     @app.get("/api/report")
@@ -131,6 +179,24 @@ def _add_api_routes(app: FastAPI, config: ReportConfig, store: RunStore) -> None
         _apply_cached_summaries(built, store)
         _apply_cached_judgments(built, store)
         return serialize_report(built, config)
+
+    @app.get("/api/value-config")
+    def get_value_config() -> dict:
+        return _value_config_response(config, store)
+
+    @app.post("/api/value-config")
+    def post_value_config(body: dict) -> dict:
+        new_value = value_config_from_dict(body or {})
+        if value_config_is_empty(new_value):
+            new_value = None
+        config.value = new_value
+        _write_value_sidecar(data_dir, new_value)
+        threading.Thread(
+            target=_apply_value_config_change,
+            args=(store, config, data_dir),
+            daemon=True,
+        ).start()
+        return {"ok": True, "enabled": new_value is not None}
 
     @app.get("/healthz")
     def healthz() -> dict:
@@ -228,6 +294,165 @@ def _apply_cached_judgments(report: Report, store: RunStore) -> None:
         apply_value_rollups(report)
 
 
+def _schedule_mapping(run: AgentRun, store: RunStore, config: ReportConfig, data_dir: Path) -> None:
+    """Ensure the agent's canonical mapping is current, in the background.
+
+    A no-op without a ``value:`` config; otherwise rebuilds the mapping only
+    when the agent's value context has changed since it was last mapped, so a
+    new agent appearing mid-session gets mapped without re-running the LLM per
+    turn.
+    """
+    if config.value is None:
+        return
+    thread = threading.Thread(
+        target=_ensure_mapping,
+        args=(store, config, data_dir, slugify(run.name)),
+        daemon=True,
+    )
+    thread.start()
+
+
+def _ensure_mapping(store: RunStore, config: ReportConfig, data_dir: Path, agent_key: str) -> None:
+    """Build and cache one agent's mapping if missing or stale (thread body)."""
+    if config.value is None:
+        return
+    context = config.value.context_for(agent_key)
+    digest = context_hash(context)
+    if store.mapping_hash(agent_key) == digest:
+        return
+    mapping = build_agent_mapping(agent_key, context, config.summarize_model)
+    store.cache_mapping(agent_key, digest, mapping)
+    _write_mapping_sidecar(data_dir, store)
+
+
+def _value_config_response(config: ReportConfig, store: RunStore) -> dict:
+    """Assemble the GET /api/value-config payload."""
+    return {
+        "enabled": config.value is not None,
+        "config": value_config_to_dict(config.value),
+        "agents": _known_agents(store),
+        "mappings": {
+            key: mapping_to_dict(mapping) for key, (_, mapping) in store.mapping_entries().items()
+        },
+        "ontology": {"archetypes": ARCHETYPES, "primitives": PRIMITIVES},
+    }
+
+
+def _known_agents(store: RunStore) -> list[dict[str, str]]:
+    """Distinct agents seen in the store, so the UI can offer them to define."""
+    seen: dict[str, str] = {}
+    for run in store.snapshot():
+        seen.setdefault(slugify(run.name), run.name)
+    return [{"key": key, "name": name} for key, name in sorted(seen.items())]
+
+
+def _apply_value_config_change(store: RunStore, config: ReportConfig, data_dir: Path) -> None:
+    """Re-map and re-judge everything after the value definition changed.
+
+    Runs in one background sweep (never per poll): rebuild canonical mappings,
+    drop the now-stale judgment cache, then re-judge stored conversations up to
+    ``max_judgments``. With the layer disabled it clears mappings instead.
+    """
+    if config.value is None:
+        store.clear_judgments()
+        store.clear_mappings()
+        _write_mapping_sidecar(data_dir, store)
+        return
+    _rebuild_mappings(store, config, data_dir)
+    store.clear_judgments()
+    _rejudge_all(store, config)
+
+
+def _rebuild_mappings(store: RunStore, config: ReportConfig, data_dir: Path) -> None:
+    """Rebuild mappings for every agent in the store or with a defined context."""
+    if config.value is None:
+        return
+    keys = {slugify(run.name) for run in store.snapshot()} | set(config.value.contexts)
+    for agent_key in keys:
+        context = config.value.context_for(agent_key)
+        mapping = build_agent_mapping(agent_key, context, config.summarize_model)
+        store.cache_mapping(agent_key, context_hash(context), mapping)
+    _write_mapping_sidecar(data_dir, store)
+
+
+def _rejudge_all(store: RunStore, config: ReportConfig) -> None:
+    """Re-judge stored conversations against the new value definition."""
+    if config.value is None:
+        return
+    conversations = _conversations(store)
+    if not config.value.include_single_runs:
+        conversations = [(gid, turns) for gid, turns in conversations if len(turns) > 1]
+    for group_id, turns in conversations[: config.value.max_judgments]:
+        _judge_into_cache(store, config, group_id, turns)
+
+
+def _conversations(store: RunStore) -> list[tuple[str, list[AgentRun]]]:
+    """Group stored runs into conversations, newest conversation first."""
+    groups: dict[str, list[AgentRun]] = {}
+    for run in store.snapshot():
+        groups.setdefault(session_group_key(run) or run.run_id, []).append(run)
+
+    def _start(run: AgentRun) -> float:
+        return run.start_time.timestamp() if run.start_time else float("inf")
+
+    for turns in groups.values():
+        turns.sort(key=_start)
+    return sorted(groups.items(), key=lambda kv: _start(kv[1][-1]), reverse=True)
+
+
+def _write_value_sidecar(data_dir: Path, value: object) -> None:
+    """Persist (or remove) the value-definition sidecar."""
+    path = data_dir / VALUE_CONFIG_FILE
+    if value is None:
+        path.unlink(missing_ok=True)
+        return
+    data_dir.mkdir(parents=True, exist_ok=True)
+    payload = value_config_to_dict(value)  # type: ignore[arg-type]
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _write_mapping_sidecar(data_dir: Path, store: RunStore) -> None:
+    """Persist the canonical mappings (with their context hashes) for reuse."""
+    entries = store.mapping_entries()
+    path = data_dir / ONTOLOGY_MAP_FILE
+    if not entries:
+        path.unlink(missing_ok=True)
+        return
+    data_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        key: {"hash": digest, "mapping": mapping_to_dict(mapping)}
+        for key, (digest, mapping) in entries.items()
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _load_value_sidecar(data_dir: Path, config: ReportConfig) -> None:
+    """Overlay a persisted value definition onto the config at startup."""
+    raw = _read_json(data_dir / VALUE_CONFIG_FILE)
+    if isinstance(raw, dict) and raw:
+        config.value = value_config_from_dict(raw)
+
+
+def _load_mapping_sidecar(data_dir: Path, store: RunStore) -> None:
+    """Populate the store's mapping cache from the sidecar at startup."""
+    raw = _read_json(data_dir / ONTOLOGY_MAP_FILE)
+    if not isinstance(raw, dict):
+        return
+    for key, entry in raw.items():
+        if not isinstance(entry, dict):
+            continue
+        mapping = mapping_from_dict(entry.get("mapping") or {})
+        store.cache_mapping(str(key), str(entry.get("hash") or ""), mapping)
+
+
+def _read_json(path: Path) -> object | None:
+    """Read and parse a JSON file, returning None when absent or malformed."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def _mount_static(app: FastAPI) -> None:
     """Serve the bundled dashboard at ``/`` when a build is packaged."""
     static_dir = _static_dir(app)
@@ -264,6 +489,7 @@ def serve(
     max_runs: int | None = None,
     open_browser: bool = False,
     summarize_model: str | None = None,
+    data_dir: str | Path | None = None,
 ) -> None:
     """Run the live dashboard server until interrupted.
 
@@ -275,6 +501,9 @@ def serve(
         open_browser: Open the dashboard in the default browser on start.
         summarize_model: Optional LangChain model id for session phrasing,
             overriding the config's ``summarize_model``.
+        data_dir: Directory for the editable value-definition sidecars
+            (defaults to the current working directory). A persisted definition
+            there overrides the YAML ``value:`` block at startup.
 
     Raises:
         OSError: If the port is already in use (with a hint to pick another).
@@ -282,10 +511,14 @@ def serve(
     import uvicorn
 
     _ensure_port_free(host, port)
+    resolved_dir = Path(data_dir or ".").resolve()
     config = load_config(config_path)
     if summarize_model is not None:
         config.summarize_model = summarize_model
-    app = create_app(config, RunStore(max_runs=max_runs))
+    _load_value_sidecar(resolved_dir, config)
+    store = RunStore(max_runs=max_runs)
+    _load_mapping_sidecar(resolved_dir, store)
+    app = create_app(config, store, resolved_dir)
     if open_browser:
         webbrowser.open(f"http://{host}:{port}")
     uvicorn.run(app, host=host, port=port, log_level="info")

@@ -180,3 +180,57 @@ def _context_from_dict(raw: dict | None) -> ValueContext | None:
             str(key): str(val) for key, val in (raw.get("custom_dimensions") or {}).items()
         },
     )
+
+
+def value_config_from_dict(raw: dict | None) -> ValueLayerConfig | None:
+    """Public entry point to build a :class:`ValueLayerConfig` from a mapping.
+
+    Args:
+        raw: A ``value:``-shaped mapping, or None.
+
+    Returns:
+        The parsed config, or None when ``raw`` is empty.
+    """
+    return _value_config_from_dict(raw)
+
+
+def value_config_to_dict(config: ValueLayerConfig | None) -> dict:
+    """Serialize a :class:`ValueLayerConfig` back to its ``value:`` mapping.
+
+    The inverse of :func:`value_config_from_dict`, used to persist the value
+    definition the manager edits in the dashboard.
+
+    Args:
+        config: The value-layer config, or None.
+
+    Returns:
+        A JSON/YAML-ready mapping; empty when ``config`` is None.
+    """
+    if config is None:
+        return {}
+    return {
+        "judge_model": config.judge_model,
+        "max_judgments": config.max_judgments,
+        "include_single_runs": config.include_single_runs,
+        "default": _context_to_dict(config.default),
+        "contexts": {key: _context_to_dict(ctx) for key, ctx in config.contexts.items()},
+    }
+
+
+def _context_to_dict(context: ValueContext | None) -> dict | None:
+    """Serialize one :class:`ValueContext`, or None when unset."""
+    if context is None:
+        return None
+    return {
+        "domain": context.domain,
+        "user_goal": context.user_goal,
+        "success_criteria": list(context.success_criteria),
+        "custom_dimensions": dict(context.custom_dimensions),
+    }
+
+
+def value_config_is_empty(config: ValueLayerConfig | None) -> bool:
+    """Whether a value config carries no definition (so the layer stays off)."""
+    if config is None:
+        return True
+    return config.default is None and not config.contexts

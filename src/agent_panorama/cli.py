@@ -190,6 +190,15 @@ def _print_summary(report: Report, output_dir: Path, formats: list[str], summari
     "'google_genai:gemini-2.5-flash-lite' (needs a provider extra + API key; "
     "without one, sessions show a deterministic summary line).",
 )
+@click.option(
+    "--data-dir",
+    "data_dir",
+    default=None,
+    type=click.Path(file_okay=False, path_type=Path),
+    help="Directory for the editable value-definition sidecars saved from the "
+    "dashboard Settings (defaults to the current directory). A saved definition "
+    "there overrides the YAML 'value:' block.",
+)
 def serve(
     port: int,
     host: str,
@@ -197,6 +206,7 @@ def serve(
     max_runs: int | None,
     open_browser: bool,
     summarize_model: str | None,
+    data_dir: Path | None,
 ) -> None:
     """Run the live dashboard server (requires the 'live' extra)."""
     try:
@@ -215,6 +225,7 @@ def serve(
             max_runs=max_runs,
             open_browser=open_browser,
             summarize_model=summarize_model,
+            data_dir=data_dir,
         )
     except OSError as error:
         raise click.ClickException(str(error)) from error

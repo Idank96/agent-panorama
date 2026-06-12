@@ -6,14 +6,14 @@ import { loadFeed, type LoadedFeed } from "./lib/loadFeed";
 import { Sidebar, type NavId } from "./components/Sidebar";
 import { Feed } from "./components/Feed";
 import { ValueView } from "./components/ValueView";
+import { SettingsView } from "./components/SettingsView";
 import { DetailPanel } from "./components/DetailPanel";
 
 const POLL_INTERVAL_MS = 3_000;
 
-const NAV_LABELS: Record<Exclude<NavId, "activity" | "value">, string> = {
+const NAV_LABELS: Record<Exclude<NavId, "activity" | "value" | "settings">, string> = {
   agents: "Agents",
   reports: "Reports",
-  settings: "Settings",
 };
 
 const firstPendingId = (data: LoadedFeed): string | null => {
@@ -130,6 +130,8 @@ export default function App() {
           selectedId={selectedId}
           onSelect={setSelectedId}
         />
+      ) : nav === "settings" ? (
+        <SettingsView agents={data.agents} />
       ) : (
         <main className="ap-feed">
           <header className="ap-topbar">

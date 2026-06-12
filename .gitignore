@@ -18,6 +18,10 @@ report.md
 report.html
 /report/
 
+# Live-mode value-definition sidecars (written at runtime by `serve --data-dir`)
+value_config.json
+ontology_map.json
+
 # Dashboard build output (built from frontend/, bundled into wheels at release)
 src/agent_panorama/static/*
 !src/agent_panorama/static/.gitkeep

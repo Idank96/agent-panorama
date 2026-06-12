@@ -63,3 +63,26 @@ class ValueReportSchema(BaseModel):
             "Whether each customer success criterion was met, keyed by the exact criterion text."
         ),
     )
+
+
+class AgentMappingSchema(BaseModel):
+    """Structured output for mapping a value context onto the canonical ontology."""
+
+    archetype: str = Field(
+        description="Exactly one archetype key from the allowed list, or 'unknown'."
+    )
+    archetype_confidence: float = Field(
+        ge=0.0, le=1.0, description="Confidence in the chosen archetype, from 0 to 1."
+    )
+    dimension_to_primitive: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Each custom dimension name mapped to the single closest value primitive key."
+        ),
+    )
+    criterion_to_primitive: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Each success criterion text mapped to the single closest value primitive key."
+        ),
+    )

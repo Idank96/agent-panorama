@@ -49,6 +49,46 @@ export interface ValueTotals {
   costPerValuable: string | null;
 }
 
+/** One agent's customer-defined value definition (the editable "object"). */
+export interface ValueDefinition {
+  domain: string | null;
+  user_goal: string | null;
+  success_criteria: string[];
+  custom_dimensions: Record<string, string>;
+}
+
+/** The whole value configuration, as sent to / received from the server. */
+export interface ValueConfigShape {
+  judge_model?: string;
+  max_judgments?: number;
+  include_single_runs?: boolean;
+  default: ValueDefinition | null;
+  contexts: Record<string, ValueDefinition>;
+}
+
+/** Read-only canonical mapping for one agent ("how we mapped you"). */
+export interface AgentMappingView {
+  agent_key: string;
+  archetype: string;
+  archetype_description: string;
+  archetype_confidence: number;
+  dimension_to_primitive: Record<string, string>;
+  criterion_to_primitive: Record<string, string>;
+  source: string;
+}
+
+/** The GET /api/value-config payload. */
+export interface ValueConfigResponse {
+  enabled: boolean;
+  config: Partial<ValueConfigShape>;
+  agents: { key: string; name: string }[];
+  mappings: Record<string, AgentMappingView>;
+  ontology: {
+    archetypes: Record<string, string>;
+    primitives: Record<string, string>;
+  };
+}
+
 export interface FeedEntry {
   id: string;
   agent: string;
