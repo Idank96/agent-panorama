@@ -86,3 +86,43 @@ class AgentMappingSchema(BaseModel):
             "Each success criterion text mapped to the single closest value primitive key."
         ),
     )
+
+
+class InterviewStepSchema(BaseModel):
+    """Structured output for one step of the guided value-definition interview."""
+
+    done: bool = Field(
+        description="True once the value definition is complete enough to stop asking."
+    )
+    field: str | None = Field(
+        default=None,
+        description=(
+            "Which part of the definition this question fills: 'domain', 'user_goal', "
+            "'success_criteria', or 'custom_dimensions'. Null when done."
+        ),
+    )
+    prompt: str = Field(
+        default="",
+        description="The single next question to ask the manager, in plain language.",
+    )
+    help: str = Field(
+        default="",
+        description="One short line explaining why this matters or how to think about it.",
+    )
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description="Optional concrete example answers, tailored to their domain.",
+    )
+    recap: str = Field(
+        default="",
+        description="When done, a one-paragraph plain-language recap of the value definition.",
+    )
+
+
+class SuggestionsSchema(BaseModel):
+    """Structured output for the 'help me figure out' suggestion list."""
+
+    suggestions: list[str] = Field(
+        default_factory=list,
+        description="3-5 concrete, domain-specific example answers to the current question.",
+    )

@@ -29,6 +29,13 @@ from ..config import (
     value_config_to_dict,
 )
 from ..export import serialize_report
+from ..layers.value.interview import (
+    advance_interview,
+    context_from_payload,
+    step_to_dict,
+    suggest_options,
+    turns_from_payload,
+)
 from ..layers.value.ontology import (
     ARCHETYPES,
     PRIMITIVES,
@@ -197,6 +204,24 @@ def _add_api_routes(app: FastAPI, config: ReportConfig, store: RunStore, data_di
             daemon=True,
         ).start()
         return {"ok": True, "enabled": new_value is not None}
+
+    @app.post("/api/value-interview")
+    def value_interview(body: dict) -> dict:
+        agent_name = str(body.get("agent_name") or "this agent")
+        current = context_from_payload(body.get("current"))
+        if body.get("action") == "suggest":
+            question = body.get("question") or {}
+            options = suggest_options(
+                agent_name,
+                current,
+                question.get("field"),
+                str(question.get("prompt") or ""),
+                config.summarize_model,
+            )
+            return {"suggestions": options}
+        transcript = turns_from_payload(body.get("transcript"))
+        step = advance_interview(agent_name, transcript, current, config.summarize_model)
+        return step_to_dict(step)
 
     @app.get("/healthz")
     def healthz() -> dict:

@@ -476,3 +476,78 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
   background: var(--ap-divider); border-radius: 5px; padding: 2px 7px; color: var(--ap-text-2);
 }
+
+/* ── Settings: guided wizard, intro, chips ──────────────────────────── */
+.ap-settings-intro { padding: 40px 26px; display: flex; justify-content: center; }
+.ap-settings-intro-card {
+  max-width: 440px; text-align: center; background: var(--ap-surface);
+  border: 1px solid var(--ap-border); border-radius: 14px; padding: 30px 28px;
+  box-shadow: var(--ap-shadow-md);
+}
+.ap-settings-intro-card h2 { font-size: 18px; margin: 0 0 10px; }
+.ap-settings-intro-card p { margin: 0 0 20px; font-size: 13.5px; color: var(--ap-text-2); line-height: 1.55; }
+
+.ap-settings-rerun { margin-bottom: 14px; }
+.ap-link-btn {
+  border: 0; background: transparent; cursor: pointer; font: inherit; font-size: 12.5px;
+  font-weight: 600; color: var(--ap-text-3); padding: 0;
+}
+.ap-link-btn:hover { color: var(--ap-text); }
+
+.ap-wizard {
+  max-width: 560px; background: var(--ap-surface); border: 1px solid var(--ap-border);
+  border-radius: 14px; box-shadow: var(--ap-shadow-md); overflow: hidden;
+}
+.ap-wizard-hd {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 18px 22px; border-bottom: 1px solid var(--ap-divider); background: var(--ap-surface-2);
+}
+.ap-wizard-kicker {
+  font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ap-text-3);
+}
+.ap-wizard-hd h2 { font-size: 16px; margin: 3px 0 0; }
+.ap-wizard-exit {
+  border: 0; background: transparent; cursor: pointer; font-size: 20px; line-height: 1;
+  color: var(--ap-text-3);
+}
+.ap-wizard-exit:hover { color: var(--ap-text); }
+
+.ap-wizard-step, .ap-wizard-done { padding: 22px; }
+.ap-wizard-loading { padding: 24px; color: var(--ap-text-3); font-size: 13.5px; }
+.ap-wizard-progress {
+  font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ap-text-3); margin-bottom: 10px;
+}
+.ap-wizard-q { font-size: 17px; margin: 0 0 6px; line-height: 1.35; }
+.ap-wizard-help { margin: 0 0 14px; font-size: 13px; color: var(--ap-text-2); line-height: 1.5; }
+.ap-help-btn {
+  border: 1px solid var(--ap-border-strong); background: #fff; cursor: pointer;
+  border-radius: 999px; padding: 5px 13px; font: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--ap-text-2); margin-bottom: 10px;
+}
+.ap-help-btn:hover { background: var(--ap-divider); color: var(--ap-text); }
+.ap-help-btn:disabled { opacity: .6; cursor: default; }
+
+.ap-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+.ap-chip {
+  border: 1px solid rgba(75,107,154,.28); background: #f0f4fa; cursor: pointer;
+  border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12.5px; font-weight: 600;
+  color: #34507c;
+}
+.ap-chip:hover { background: #e4ecf7; }
+
+.ap-wizard-input { margin-bottom: 18px; }
+.ap-wizard-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.ap-wizard-actions .ap-btn { height: 34px; padding: 0 16px; font-size: 13px; }
+.ap-wizard-actions .ap-btn-reject {
+  background: #fff; color: var(--ap-text-2); border: 1px solid var(--ap-border-strong);
+}
+.ap-wizard-actions .ap-btn-reject:hover { background: var(--ap-divider); }
+
+.ap-wizard-done h3 { font-size: 17px; margin: 0 0 10px; }
+.ap-wizard-recap {
+  margin: 0 0 20px; font-size: 13.5px; color: var(--ap-text); line-height: 1.6;
+  background: var(--ap-green-bg); border: 1px solid rgba(63,157,107,.22);
+  border-radius: 10px; padding: 14px 16px;
+}

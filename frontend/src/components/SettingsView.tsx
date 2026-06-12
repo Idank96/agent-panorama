@@ -10,11 +10,14 @@ import {
   saveValueConfig,
   toEditableConfig,
 } from "../lib/valueConfig";
+import { DimensionEditor, Field, ListEditor } from "./ValueFields";
+import { ValueWizard } from "./ValueWizard";
 
 const POLL_MS = 4_000;
 const DEFAULT_KEY = "__default__";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+type Mode = "auto" | "wizard" | "form";
 
 interface SettingsViewProps {
   agents: Record<string, AgentMeta>;
@@ -31,7 +34,8 @@ interface ServerMeta {
  * Settings — the guided "define how value is measured" view.
  *
  * Each agent (plus a fleet default) is an "object" whose value definition the
- * manager writes in their own words; the canonical archetype/primitive layer is
+ * manager builds through an adaptive interview (default for undefined agents)
+ * or edits directly in the form. The canonical archetype/primitive layer is
  * surfaced read-only. Editing persists to the live server, which re-judges; the
  * static export has no server, so the view goes read-only there.
  */
@@ -40,6 +44,7 @@ export function SettingsView({ agents }: SettingsViewProps) {
   const [meta, setMeta] = useState<ServerMeta | null>(null);
   const [serverUp, setServerUp] = useState<boolean | null>(null);
   const [target, setTarget] = useState<string>(DEFAULT_KEY);
+  const [mode, setMode] = useState<Mode>("auto");
   const [status, setStatus] = useState<SaveStatus>("idle");
   const seeded = useRef(false);
 
@@ -64,10 +69,26 @@ export function SettingsView({ agents }: SettingsViewProps) {
   const objects = listObjects(draft, meta, agents);
   const def = currentDef(draft, target);
   const mapping = target === DEFAULT_KEY ? null : (meta.mappings[target] ?? null);
+  const targetLabel = objects.find((o) => o.key === target)?.label ?? "Agent";
+  const wizardName = target === DEFAULT_KEY ? "your agents (fleet default)" : targetLabel;
+  const surface: "intro" | "wizard" | "form" =
+    mode === "auto" ? (isDefinedEditable(def) ? "form" : "intro") : mode;
+
+  const selectTarget = (key: string) => {
+    setTarget(key);
+    setMode("auto");
+    setStatus("idle");
+  };
 
   const update = (next: EditableDef) => {
     setStatus("idle");
     setDraft((prev) => (prev ? writeDef(prev, target, next) : prev));
+  };
+
+  const completeWizard = (next: EditableDef) => {
+    setDraft((prev) => (prev ? writeDef(prev, target, next) : prev));
+    setMode("form");
+    setStatus("idle");
   };
 
   const onSave = async () => {
@@ -87,22 +108,51 @@ export function SettingsView({ agents }: SettingsViewProps) {
               Define how value is measured — in your own words, per agent
             </span>
           </div>
-          <div className="ap-topbar-tools">
-            <SaveButton status={status} onSave={onSave} />
-          </div>
+          {surface === "form" && (
+            <div className="ap-topbar-tools">
+              <SaveButton status={status} onSave={onSave} />
+            </div>
+          )}
         </div>
       </header>
 
       <div className="ap-settings">
-        <ObjectRail objects={objects} target={target} setTarget={setTarget} />
+        <ObjectRail objects={objects} target={target} setTarget={selectTarget} />
         <div className="ap-settings-main">
-          <DefinitionForm
-            title={objects.find((o) => o.key === target)?.label ?? "Agent"}
-            isDefault={target === DEFAULT_KEY}
-            def={def}
-            onChange={update}
-          />
-          <MappingPanel mapping={mapping} ontology={meta.ontology} isDefault={target === DEFAULT_KEY} />
+          {surface === "wizard" ? (
+            <ValueWizard
+              key={target}
+              agentName={wizardName}
+              initial={def}
+              onComplete={completeWizard}
+              onCancel={() => setMode("auto")}
+            />
+          ) : surface === "intro" ? (
+            <IntroPanel
+              name={wizardName}
+              onStart={() => setMode("wizard")}
+              onManual={() => setMode("form")}
+            />
+          ) : (
+            <>
+              <div className="ap-settings-rerun">
+                <button className="ap-link-btn" onClick={() => setMode("wizard")}>
+                  ↺ Re-run guided setup
+                </button>
+              </div>
+              <DefinitionForm
+                title={targetLabel}
+                isDefault={target === DEFAULT_KEY}
+                def={def}
+                onChange={update}
+              />
+              <MappingPanel
+                mapping={mapping}
+                ontology={meta.ontology}
+                isDefault={target === DEFAULT_KEY}
+              />
+            </>
+          )}
         </div>
       </div>
     </main>
@@ -194,6 +244,37 @@ function ObjectRail({
   );
 }
 
+function IntroPanel({
+  name,
+  onStart,
+  onManual,
+}: {
+  name: string;
+  onStart: () => void;
+  onManual: () => void;
+}) {
+  return (
+    <div className="ap-settings-intro">
+      <div className="ap-settings-intro-card">
+        <h2>Define how value is measured for {name}</h2>
+        <p>
+          Answer a few quick questions and we'll build the definition with you — each one
+          tailored to what this agent actually does. Stuck on any of them? Tap{" "}
+          <b>Help me figure out</b> for suggestions. You can edit everything afterward.
+        </p>
+        <div className="ap-wizard-actions">
+          <button className="ap-btn ap-save-btn" onClick={onStart}>
+            Start guided setup
+          </button>
+          <button className="ap-btn ap-btn-reject" onClick={onManual}>
+            Or edit manually
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DefinitionForm({
   title,
   isDefault,
@@ -265,98 +346,6 @@ function DefinitionForm({
         />
       </Field>
     </section>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  example,
-  children,
-}: {
-  label: string;
-  hint: string;
-  example: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="ap-field">
-      <label className="ap-field-label">{label}</label>
-      <p className="ap-field-hint">{hint}</p>
-      {children}
-      <p className="ap-field-eg">e.g. {example}</p>
-    </div>
-  );
-}
-
-function ListEditor({
-  items,
-  placeholder,
-  onChange,
-}: {
-  items: string[];
-  placeholder: string;
-  onChange: (items: string[]) => void;
-}) {
-  const set = (i: number, v: string) => onChange(items.map((x, j) => (j === i ? v : x)));
-  const remove = (i: number) => onChange(items.filter((_, j) => j !== i));
-  return (
-    <div className="ap-list-editor">
-      {items.map((item, i) => (
-        <div className="ap-list-row" key={i}>
-          <input
-            className="ap-input"
-            value={item}
-            placeholder={placeholder}
-            onChange={(e) => set(i, e.target.value)}
-          />
-          <button className="ap-icon-btn" onClick={() => remove(i)} aria-label="Remove">
-            ×
-          </button>
-        </div>
-      ))}
-      <button className="ap-add-btn" onClick={() => onChange([...items, ""])}>
-        + Add criterion
-      </button>
-    </div>
-  );
-}
-
-function DimensionEditor({
-  dimensions,
-  onChange,
-}: {
-  dimensions: { name: string; description: string }[];
-  onChange: (dims: { name: string; description: string }[]) => void;
-}) {
-  const set = (i: number, patch: Partial<{ name: string; description: string }>) =>
-    onChange(dimensions.map((d, j) => (j === i ? { ...d, ...patch } : d)));
-  const remove = (i: number) => onChange(dimensions.filter((_, j) => j !== i));
-  return (
-    <div className="ap-list-editor">
-      {dimensions.map((dim, i) => (
-        <div className="ap-dim-row" key={i}>
-          <input
-            className="ap-input ap-dim-name"
-            value={dim.name}
-            placeholder="empathy"
-            onChange={(e) => set(i, { name: e.target.value })}
-          />
-          <input
-            className="ap-input ap-dim-desc"
-            value={dim.description}
-            placeholder="warmth and acknowledgement of the user's frustration"
-            onChange={(e) => set(i, { description: e.target.value })}
-          />
-          <button className="ap-icon-btn" onClick={() => remove(i)} aria-label="Remove">
-            ×
-          </button>
-        </div>
-      ))}
-      <button className="ap-add-btn" onClick={() => onChange([...dimensions, { name: "", description: "" }])}>
-        + Add dimension
-      </button>
-    </div>
   );
 }
 
