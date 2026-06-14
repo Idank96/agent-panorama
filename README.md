@@ -77,7 +77,52 @@ uv pip install -e ".[dev]"
 Requires Python 3.10+. Dependencies are intentionally minimal: `click`,
 `jinja2`, `pyyaml`, `python-dotenv`.
 
+## Quickstart - watch your agents live
+
+The fastest way in: drop **one callback** into your existing LangChain / LangGraph
+app and watch every completed run land on a local dashboard. No rebuild, no new
+infrastructure, no traces to export.
+
+**1. Install with the live extra:**
+
+```bash
+pip install 'agent-panorama[live]'
+```
+
+**2. Add the callback to your agent** - one line, wherever you `invoke`:
+
+```python
+from agent_panorama.live import PanoramaCallbackHandler
+
+agent.invoke(inputs, config={"callbacks": [PanoramaCallbackHandler()]})
+```
+
+That's the whole integration. The handler ships with the base package and posts
+runs over the standard library, so your agent app never needs the server
+dependencies - and delivery never raises or blocks beyond a 2 s timeout (if the
+dashboard is down, the app logs one warning and keeps working).
+
+**3. Run the dashboard** and watch runs stream in:
+
+```bash
+agent-panorama serve --open        # dashboard at http://localhost:8321
+```
+
+Each run appears in the activity feed within seconds of finishing - outcome,
+tool calls, tokens, anomalies, and per-agent rollups all update live (the
+dashboard polls `/api/report` every 3 s).
+
+> Multi-turn chat agent? Pass `metadata={"session_id": ..., "user_id": ...}` in
+> the invoke config so a whole conversation collapses into one feed entry - see
+> [Sessions](#sessions-many-turns-one-feed-entry). Prefer working from exported
+> Langfuse / LangSmith traces instead of live? See [CLI usage](#cli-usage) below.
+> More on the live server (flags, safety, demos) is in [Live mode](#live-mode-v03---continuous-oversight).
+
 ## CLI usage
+
+Already have **exported** Langfuse or LangSmith traces? Generate a one-shot
+Markdown + HTML report (and `report.json` for the dashboard) straight from them -
+no callback, no live server:
 
 ```bash
 agent-panorama generate --input traces.json --output ./report --format html
