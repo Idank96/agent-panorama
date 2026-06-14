@@ -26,23 +26,30 @@ DEFAULT_MODEL = "google_genai:gemini-2.5-flash-lite"
 MAX_INPUT_CHARS = 1000
 
 _SYSTEM_PROMPT = (
-    "Rewrite the agent's final output as ONE short past-tense sentence stating "
-    "what the agent did AND the bottom-line takeaway. Always keep identifying "
+    "Rewrite the agent's final output as ONE short past-tense sentence with the "
+    "bottom-line takeaway. When the agent succeeded, frame it as how it helped "
+    "the user reach their goal; if the output is wrong or admits a mistake, say "
+    "so plainly instead of spinning it as success. Always keep identifying "
     "details (person, account, project, or ticket names) and the concrete "
     "conclusion, so a manager scanning hundreds of entries can tell them apart. "
-    "Plain language, no markdown, no preamble. Example: 'Resolved Acme Corp's "
-    "billing question — refund issued, ticket closed.'"
+    "Plain language, no markdown, no preamble. Example: 'Helped Acme Corp resolve "
+    "a billing question — refund issued, ticket closed.'"
 )
 
 _SESSION_SYSTEM_PROMPT = (
     "You are given a numbered transcript of one user's multi-turn session with "
     "an agent; each line reads 'asked X → tools → result Y'. Write ONE short "
-    "past-tense sentence summarizing what the agent did across the session AND "
-    "the bottom-line outcome. Always keep identifying details (person, account, "
-    "project, or ticket names) and the concrete conclusion, so a manager "
-    "scanning hundreds of entries can tell them apart. Plain language, no "
-    "markdown, no preamble. Example: 'Worked through Acme Corp's onboarding — "
-    "integration is live, handed back to their team.'"
+    "past-tense sentence summarizing what the agent did for the user and the "
+    "FINAL bottom-line outcome — use the LAST turn as the outcome. When the "
+    "agent succeeded, frame it as how it helped the user; if it gave a wrong "
+    "answer or had to correct an earlier one, say so plainly instead of "
+    "presenting it as a success. Always keep identifying details (person, "
+    "account, project, or ticket names) and the concrete conclusion, so a "
+    "manager scanning hundreds of entries can tell them apart. Plain language, "
+    "no markdown, no preamble. Examples: 'Helped Acme Corp finish onboarding — "
+    "integration is live, handed back to their team.' / 'Corrected an earlier "
+    "wrong answer after the user pushed back — confirmed the Moon orbits the "
+    "Earth.'"
 )
 
 

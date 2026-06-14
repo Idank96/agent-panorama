@@ -300,12 +300,16 @@ def _judge_into_cache(
 
 
 def _apply_cached_summaries(report: Report, store: RunStore) -> None:
-    """Overwrite aggregated feed items' action text with cached LLM phrases."""
+    """Overwrite feed items' action text with cached LLM phrases.
+
+    Applies to single-turn conversations too: ``get_summary`` returns ``None``
+    for sessionless runs that were never phrased, so the deterministic line
+    stands, while any session (one turn or many) gets the LLM phrasing.
+    """
     for item in report.feed:
-        if item.turn_count > 1:
-            phrase = store.get_summary(item.run_id)
-            if phrase:
-                item.action = phrase
+        phrase = store.get_summary(item.run_id)
+        if phrase:
+            item.action = phrase
 
 
 def _apply_cached_judgments(report: Report, store: RunStore) -> None:
