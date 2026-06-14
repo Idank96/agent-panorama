@@ -55,6 +55,31 @@ export interface ValueDefinition {
   user_goal: string | null;
   success_criteria: string[];
   custom_dimensions: Record<string, string>;
+  served_user?: string | null;
+  failure_modes?: string[];
+  stakes_good?: string | null;
+  stakes_bad?: string | null;
+}
+
+/** One property of a blueprint object (bound to a ValueDefinition field). */
+export interface BlueprintProperty {
+  key: string;
+  label: string;
+  kind: "text" | "longtext" | "list" | "dimensions";
+  help: string;
+  examples: string[];
+}
+
+/** One object type in the predefined value-ontology map. */
+export interface BlueprintObject {
+  key: string;
+  label: string;
+  description: string;
+  importance: "required" | "recommended";
+  layout: { col: number; row: number };
+  links: { to: string; relation: string }[];
+  properties: BlueprintProperty[];
+  min_count: number;
 }
 
 /** The whole value configuration, as sent to / received from the server. */
@@ -87,6 +112,7 @@ export interface ValueConfigResponse {
     archetypes: Record<string, string>;
     primitives: Record<string, string>;
   };
+  blueprint: BlueprintObject[];
 }
 
 export interface FeedEntry {

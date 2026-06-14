@@ -23,7 +23,7 @@ const NAV_ITEMS: { id: NavId; label: string; Icon: typeof IconActivity }[] = [
   { id: "value", label: "Value", Icon: IconValue },
   { id: "agents", label: "Agents", Icon: IconAgents },
   { id: "reports", label: "Reports", Icon: IconReports },
-  { id: "settings", label: "Settings", Icon: IconSettings },
+  { id: "settings", label: "Value Ontology", Icon: IconSettings },
 ];
 
 const HEALTH_COLOR: Record<AgentMeta["health"], string> = {

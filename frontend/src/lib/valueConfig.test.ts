@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  blankEditableDef,
   fromEditableConfig,
   fromEditableDef,
   isDefinedEditable,
@@ -13,6 +14,10 @@ const sampleDef = (): ValueDefinition => ({
   user_goal: "resolve the billing issue",
   success_criteria: ["refund processed", "no repeat contact"],
   custom_dimensions: { empathy: "warmth and acknowledgement" },
+  served_user: "a frustrated customer",
+  failure_modes: ["wrong refund amount"],
+  stakes_good: "saves agent time",
+  stakes_bad: "triggers a chargeback",
 });
 
 describe("value definition round-trip", () => {
@@ -27,8 +32,8 @@ describe("value definition round-trip", () => {
 
   it("drops blank criteria and unnamed dimensions on the way out", () => {
     const built = fromEditableDef({
+      ...blankEditableDef(),
       domain: " support ",
-      userGoal: "",
       successCriteria: ["kept", "  ", ""],
       dimensions: [
         { name: "empathy", description: "warmth" },
@@ -40,6 +45,10 @@ describe("value definition round-trip", () => {
       user_goal: null,
       success_criteria: ["kept"],
       custom_dimensions: { empathy: "warmth" },
+      served_user: null,
+      failure_modes: [],
+      stakes_good: null,
+      stakes_bad: null,
     });
   });
 });

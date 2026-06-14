@@ -27,7 +27,11 @@ CONTEXT_PREAMBLE = (
     "every custom dimension from 0 to 10 in custom_scores keyed by its exact name, and "
     "report whether each success criterion was met in criteria_verdicts keyed by the exact "
     "criterion text. Write outcome, value_delivered, value_lost, and recommended_fixes in "
-    "the customer's own domain vocabulary, not in generic evaluation language."
+    "the customer's own domain vocabulary, not in generic evaluation language. When the "
+    "customer lists their own failure modes, check the transcript for each and surface any "
+    "you find in value_lost. When they state the stakes (what a good conversation is worth "
+    "and what a bad one costs), weigh those stakes in overall_score — a session that "
+    "protects high stakes is worth more than one that does not."
 )
 
 
@@ -67,6 +71,8 @@ def format_context(context: ValueContext) -> str:
     lines = ["Customer context:"]
     if context.domain:
         lines.append(f"- Domain: {context.domain}")
+    if context.served_user:
+        lines.append(f"- User served: {context.served_user}")
     if context.user_goal:
         lines.append(f"- User goal: {context.user_goal}")
     lines.extend(f"- Success criterion: {criterion}" for criterion in context.success_criteria)
@@ -74,6 +80,11 @@ def format_context(context: ValueContext) -> str:
         f"- Custom dimension '{name}': {description}"
         for name, description in context.custom_dimensions.items()
     )
+    lines.extend(f"- Failure mode to watch for: {mode}" for mode in context.failure_modes)
+    if context.stakes_good:
+        lines.append(f"- A good conversation is worth: {context.stakes_good}")
+    if context.stakes_bad:
+        lines.append(f"- A bad conversation costs: {context.stakes_bad}")
     return "\n".join(lines)
 
 

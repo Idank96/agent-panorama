@@ -179,6 +179,10 @@ def _context_from_dict(raw: dict | None) -> ValueContext | None:
         custom_dimensions={
             str(key): str(val) for key, val in (raw.get("custom_dimensions") or {}).items()
         },
+        served_user=raw.get("served_user"),
+        failure_modes=[str(item) for item in raw.get("failure_modes") or []],
+        stakes_good=raw.get("stakes_good"),
+        stakes_bad=raw.get("stakes_bad"),
     )
 
 
@@ -226,6 +230,10 @@ def _context_to_dict(context: ValueContext | None) -> dict | None:
         "user_goal": context.user_goal,
         "success_criteria": list(context.success_criteria),
         "custom_dimensions": dict(context.custom_dimensions),
+        "served_user": context.served_user,
+        "failure_modes": list(context.failure_modes),
+        "stakes_good": context.stakes_good,
+        "stakes_bad": context.stakes_bad,
     }
 
 

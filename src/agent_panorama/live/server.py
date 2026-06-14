@@ -29,6 +29,7 @@ from ..config import (
     value_config_to_dict,
 )
 from ..export import serialize_report
+from ..layers.value.blueprint import serialize_blueprint
 from ..layers.value.interview import (
     advance_interview,
     context_from_payload,
@@ -360,6 +361,7 @@ def _value_config_response(config: ReportConfig, store: RunStore) -> dict:
             key: mapping_to_dict(mapping) for key, (_, mapping) in store.mapping_entries().items()
         },
         "ontology": {"archetypes": ARCHETYPES, "primitives": PRIMITIVES},
+        "blueprint": serialize_blueprint(),
     }
 
 

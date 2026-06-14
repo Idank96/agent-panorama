@@ -45,6 +45,12 @@ three rungs over the same conversations:
 
 <p align="center"><em>The fleet view - one plain-English activity feed across every agent, with per-run details, outcomes, and cost.</em></p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Idank96/agent-panorama/main/assets/value-ontology.png" alt="Agent Panorama - guided value-ontology wizard with a live constellation map" width="100%">
+</p>
+
+<p align="center"><em>Define value without YAML - a guided wizard fills in each agent's value ontology as a live constellation map, then a Value Blueprint summarizes it.</em></p>
+
 ## Why
 
 Traces are great for engineers and terrible for everyone else. `agent-panorama`
@@ -474,6 +480,27 @@ judgment per conversation, re-judging only when a new turn arrives. Every call
 is audited to `llm_calls.log`. Without a provider/key, judging degrades
 silently - the report still generates, just unjudged.
 
+### Define value in the dashboard - no YAML required
+
+Managers don't have to hand-write the `value:` block. The live dashboard has a
+**Value Ontology** section that builds it with them:
+
+- A **guided wizard** asks one plain-language question at a time - who the agent
+  serves, the user's goal, what success looks like, how it fails, what's at stake -
+  while a live constellation map fills in as they answer. "Help me figure out"
+  proposes domain-specific examples (LLM-phrased with a provider key; plain
+  deterministic questions without one).
+- On finish, each agent gets a **Value Blueprint**: a one-glance briefing - an
+  executive summary, a completeness score, the ontology snapshot (click to expand),
+  a plain-language "how value is created" narrative, and success-criteria /
+  value-dimension / failure-mode / stakes cards, plus a fleet comparison. Switch
+  between agents with the top pills, re-open the wizard to edit, or define a new
+  agent's ontology from scratch.
+
+Definitions are saved by `agent-panorama serve` to a sidecar in `--data-dir` and
+**override the YAML `value:` block**, so the judge re-maps and re-judges with the
+manager's own words.
+
 ## Roadmap
 
 `agent-panorama` starts as a report generator and is growing into an **oversight
@@ -512,6 +539,8 @@ did, decided, and got wrong. More than logs, across more than one agent.
 - Value delivered / value lost / recommended fixes, cited from the transcript
 - A second dashboard view: avg value score, valuable rate, and
   **cost per valuable conversation**
+- A **Value Ontology** builder in the dashboard: a guided wizard plus a per-agent
+  **Value Blueprint** so managers define value without touching YAML
 
 **📈 v0.5 - Trends & regressions**
 - Track rates over time, not just a point-in-time snapshot

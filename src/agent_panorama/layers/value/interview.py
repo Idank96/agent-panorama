@@ -1,14 +1,18 @@
-"""The guided value-definition interview: an adaptive, one-question-at-a-time
-discovery flow that helps a non-technical manager define how their agent's value
-is measured — in their own domain language.
+"""The guided value-definition interview: a blueprint-driven, one-question-at-a-
+time discovery flow that helps a non-technical manager fill in the value-ontology
+map (see ``blueprint.py``) for their agent.
+
+The blueprint decides *what* to ask next — ``next_gap`` returns the most important
+still-missing object property, so coverage of the full picture is guaranteed and
+the interview implicitly asks for whatever the manager has not yet provided. The
+LLM only does the intelligent part: phrasing that question for their domain and
+proposing example answers.
 
 Stateless by design: the caller (the live server, on behalf of the dashboard
-wizard) holds the transcript and the partial :class:`ValueContext`, and each
-step is one cheap LLM call that returns the single most useful next question (or
-``done``). Mirrors the rest of the value layer: lazy pydantic in ``_schema.py``,
-the same ``init_chat_model`` provider path, and it **never raises** — any error
-or missing provider degrades to a deterministic fixed-order fallback so the
-wizard always advances.
+wizard) holds the transcript and the partial :class:`ValueContext`. Mirrors the
+rest of the value layer: lazy pydantic in ``_schema.py``, the same
+``init_chat_model`` provider path, and it **never raises** — any error or missing
+provider degrades to the gap's deterministic default question.
 """
 
 from __future__ import annotations
@@ -16,6 +20,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+from .blueprint import VALUE_BLUEPRINT, Gap, next_gap
 from .context import ValueContext
 
 logger = logging.getLogger(__name__)
@@ -23,41 +28,23 @@ logger = logging.getLogger(__name__)
 # Same cheap tier as the mapping layer; the server passes its summarize model.
 DEFAULT_INTERVIEW_MODEL = "google_genai:gemini-2.5-flash-lite"
 
-# The definition is complete enough to stop once these are captured; the cap
-# keeps the interview short even if the model never volunteers ``done``.
-MAX_QUESTIONS = 8
-MIN_SUCCESS_CRITERIA = 2
+# Safety cap: required objects are always asked, but recommended ones stop being
+# offered past this many questions so the interview never drags.
+MAX_QUESTIONS = 10
 
-_FIELDS = ("domain", "user_goal", "success_criteria", "custom_dimensions")
-_INPUT_KIND = {
-    "domain": "text",
-    "user_goal": "longtext",
-    "success_criteria": "list",
-    "custom_dimensions": "dimensions",
+# Default question phrasing per field, used when no model is available.
+_DEFAULT_PROMPTS = {
+    "domain": "What does this agent help your users do, and in what setting?",
+    "served_user": "Who is on the other end of these conversations, and what's their situation?",
+    "user_goal": "What is a user trying to achieve when they talk to this agent?",
+    "success_criteria": "What marks a genuinely good outcome? Add a few concrete checks.",
+    "custom_dimensions": "What qualities should every conversation be scored on, 0-10?",
+    "failure_modes": "What does it look like when this agent gets it wrong?",
+    "stakes_good": "When a conversation goes well, what is that worth to you?",
+    "stakes_bad": "When a conversation goes badly, what does it cost you?",
 }
 
-_FALLBACK = {
-    "domain": (
-        "What does this agent help your users do, and in what setting?",
-        "Sets the language value is judged in — your domain, not a generic rubric.",
-        ["B2B SaaS billing support", "Internal IT helpdesk", "E-commerce order support"],
-    ),
-    "user_goal": (
-        "What is a user trying to achieve in a conversation with this agent?",
-        "Value is judged against this goal, not a checklist.",
-        ["Resolve the issue without a human", "Get an accurate answer fast"],
-    ),
-    "success_criteria": (
-        "What marks a genuinely good outcome? Add a few concrete checks.",
-        "Each is reported met / not met for every conversation.",
-        ["Issue resolved without escalation", "No repeat contact within 48h"],
-    ),
-    "custom_dimensions": (
-        "What qualities should every conversation be scored on, 0-10?",
-        "Named qualities that matter to you beyond a simple pass/fail.",
-        ["empathy", "first-contact resolution", "proactiveness"],
-    ),
-}
+_EXAMPLES = {prop.key: list(prop.examples) for spec in VALUE_BLUEPRINT for prop in spec.properties}
 
 
 @dataclass
@@ -75,6 +62,7 @@ class InterviewStep:
 
     done: bool
     field_name: str | None = None
+    object_key: str = ""
     prompt: str = ""
     help: str = ""
     input_kind: str = "text"
@@ -91,8 +79,9 @@ def advance_interview(
 ) -> InterviewStep:
     """Return the next interview step given the conversation so far.
 
-    Never raises: a missing provider/key or any model error degrades to the
-    deterministic fixed-order fallback, so the wizard always advances.
+    The blueprint's :func:`next_gap` chooses the object/property to ask about;
+    the LLM phrases it. Never raises: a missing provider/key or any model error
+    degrades to the gap's default question.
 
     Args:
         agent_name: Display name of the agent being defined (for phrasing).
@@ -105,16 +94,16 @@ def advance_interview(
     Returns:
         The next :class:`InterviewStep`.
     """
-    if len(transcript) >= MAX_QUESTIONS:
+    gap = next_gap(current)
+    if gap is None:
+        return _done_step(current)
+    if gap.importance == "recommended" and len(transcript) >= MAX_QUESTIONS:
         return _done_step(current)
     try:
-        step = _invoke_advance(agent_name, transcript, current, model, chat_model)
+        return _invoke_advance(agent_name, transcript, current, gap, model, chat_model)
     except Exception as error:  # noqa: BLE001 - the wizard must always advance
         logger.warning("Value interview advance failed: %s", error)
-        return _fallback_step(current)
-    if step.done and not _meets_minimums(current):
-        return _fallback_step(current)
-    return step
+        return _gap_step(gap)
 
 
 def suggest_options(
@@ -145,45 +134,19 @@ def suggest_options(
         return _invoke_suggest(agent_name, current, prompt, model, chat_model)
     except Exception as error:  # noqa: BLE001 - suggestions must never break the wizard
         logger.warning("Value interview suggest failed: %s", error)
-        return list(_FALLBACK.get(field_name or "", ("", "", []))[2])
+        return list(_EXAMPLES.get(field_name or "", []))
 
 
-def _meets_minimums(current: ValueContext) -> bool:
-    """Whether enough has been captured to allow the interview to end."""
-    return bool(
-        current.domain
-        and current.user_goal
-        and len(current.success_criteria) >= MIN_SUCCESS_CRITERIA
-        and current.custom_dimensions
-    )
-
-
-def _next_missing_field(current: ValueContext) -> str | None:
-    """The first still-incomplete field, in fixed order."""
-    if not current.domain:
-        return "domain"
-    if not current.user_goal:
-        return "user_goal"
-    if len(current.success_criteria) < MIN_SUCCESS_CRITERIA:
-        return "success_criteria"
-    if not current.custom_dimensions:
-        return "custom_dimensions"
-    return None
-
-
-def _fallback_step(current: ValueContext) -> InterviewStep:
-    """Deterministic next question when the model is unavailable."""
-    field_name = _next_missing_field(current)
-    if field_name is None:
-        return _done_step(current)
-    prompt, help_text, suggestions = _FALLBACK[field_name]
+def _gap_step(gap: Gap) -> InterviewStep:
+    """The deterministic step for a gap when the model is unavailable."""
     return InterviewStep(
         done=False,
-        field_name=field_name,
-        prompt=prompt,
-        help=help_text,
-        input_kind=_INPUT_KIND[field_name],
-        suggestions=list(suggestions),
+        field_name=gap.field_name,
+        object_key=gap.object_key,
+        prompt=_DEFAULT_PROMPTS.get(gap.field_name, f"Tell me about: {gap.label}"),
+        help=gap.help,
+        input_kind=gap.kind,
+        suggestions=list(gap.examples),
     )
 
 
@@ -199,29 +162,48 @@ def _recap(current: ValueContext) -> str:
         parts.append(f"a {current.domain} agent")
     if current.user_goal:
         parts.append(f"whose users want to {current.user_goal}")
-    pieces = " ".join(parts) or "this agent"
-    return (
-        f"Value for {pieces} will be judged on "
-        f"{len(current.success_criteria)} success criteria and "
-        f"{len(current.custom_dimensions)} custom dimension(s)."
-    )
+    who = " ".join(parts) or "this agent"
+    measures = [
+        f"{len(current.success_criteria)} success criteria",
+        f"{len(current.custom_dimensions)} value dimension(s)",
+    ]
+    if current.failure_modes:
+        measures.append(f"{len(current.failure_modes)} failure mode(s)")
+    if current.stakes_good or current.stakes_bad:
+        measures.append("the stakes")
+    return f"Value for {who} will be judged on " + ", ".join(measures) + "."
 
 
 def _invoke_advance(
     agent_name: str,
     transcript: list[InterviewTurn],
     current: ValueContext,
+    gap: Gap,
     model: str,
     chat_model: object | None,
 ) -> InterviewStep:
-    """One structured-output call for the next step, normalized."""
+    """One structured-output call to phrase the gap's question, normalized."""
     from ._schema import InterviewStepSchema
 
     chat_model = chat_model or _init_model(model)
     structured = chat_model.with_structured_output(InterviewStepSchema)  # type: ignore[attr-defined]
-    result = structured.invoke(_advance_messages(agent_name, transcript, current))
+    result = structured.invoke(_advance_messages(agent_name, transcript, current, gap))
     data = result.model_dump() if hasattr(result, "model_dump") else dict(result)
-    return _normalize_step(data, current)
+    return _step_from_model(data, gap)
+
+
+def _step_from_model(data: dict, gap: Gap) -> InterviewStep:
+    """Combine the model's phrasing with the gap's fixed target."""
+    suggestions = [str(item) for item in (data.get("suggestions") or [])][:6]
+    return InterviewStep(
+        done=False,
+        field_name=gap.field_name,
+        object_key=gap.object_key,
+        prompt=str(data.get("prompt") or _DEFAULT_PROMPTS.get(gap.field_name, gap.label)),
+        help=str(data.get("help") or gap.help),
+        input_kind=gap.kind,
+        suggestions=suggestions or list(gap.examples),
+    )
 
 
 def _invoke_suggest(
@@ -244,42 +226,25 @@ def _init_model(model: str) -> object:
     return init_chat_model(model, temperature=0.2)
 
 
-def _normalize_step(data: dict, current: ValueContext) -> InterviewStep:
-    """Coerce raw model output into a valid step (fix field / input kind)."""
-    if data.get("done"):
-        return InterviewStep(done=True, recap=str(data.get("recap") or _recap(current)))
-    field_name = data.get("field")
-    if field_name not in _FIELDS:
-        field_name = _next_missing_field(current) or "custom_dimensions"
-    return InterviewStep(
-        done=False,
-        field_name=field_name,
-        prompt=str(data.get("prompt") or _FALLBACK[field_name][0]),
-        help=str(data.get("help") or _FALLBACK[field_name][1]),
-        input_kind=_INPUT_KIND[field_name],
-        suggestions=[str(item) for item in (data.get("suggestions") or [])][:6],
-    )
-
-
 def _advance_messages(
-    agent_name: str, transcript: list[InterviewTurn], current: ValueContext
+    agent_name: str, transcript: list[InterviewTurn], current: ValueContext, gap: Gap
 ) -> list[dict[str, str]]:
-    """Build the chat messages for an advance call."""
+    """Build the chat messages for an advance call directed at one gap."""
     system = (
         "You help a non-technical manager define how to measure the value their AI agent "
-        "delivers — in their own words, for their own domain. Run a short adaptive "
-        "interview, ONE question at a time. Using what they have told you, ask the single "
-        "most useful next question to complete the picture: the domain the agent works in "
-        "(field 'domain'), the goal a conversation should achieve for the user "
-        "('user_goal'), the concrete success criteria that mark a good outcome "
-        "('success_criteria'), and the custom qualities worth scoring 0-10 "
-        "('custom_dimensions'). Make every question specific to their domain and easy to "
-        "answer, and propose concrete example answers in 'suggestions'. Keep it short: set "
-        "done=true once you have the domain, the user goal, at least two success criteria, "
-        "and at least one dimension — or after about eight questions — and write a "
-        "one-paragraph plain-language recap."
+        "delivers — in their own words, for their own domain. You are filling a fixed map "
+        "of the value definition, one question at a time. You are told which part to ask "
+        "about next: phrase ONE clear, friendly question for it, tailored to this agent's "
+        "domain and what the manager has already said, and propose 2-4 concrete example "
+        "answers in 'suggestions'. Do not ask about anything else, and set done=false — the "
+        "system decides when the map is complete."
     )
-    user = f"Agent: {agent_name}\n\n{_format_current(current)}\n\n{_format_transcript(transcript)}"
+    user = (
+        f"Agent: {agent_name}\n\n"
+        f"{_format_current(current)}\n\n"
+        f"{_format_transcript(transcript)}\n\n"
+        f"Ask about: {gap.label} — {gap.help}"
+    )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -298,11 +263,13 @@ def _format_current(current: ValueContext) -> str:
     """Render the partial definition for the model."""
     lines = ["Definition so far:"]
     lines.append(f"- Domain: {current.domain or '(not set)'}")
+    lines.append(f"- User served: {current.served_user or '(not set)'}")
     lines.append(f"- User goal: {current.user_goal or '(not set)'}")
-    crit = "; ".join(current.success_criteria) or "(none yet)"
-    lines.append(f"- Success criteria: {crit}")
-    dims = ", ".join(current.custom_dimensions) or "(none yet)"
-    lines.append(f"- Custom dimensions: {dims}")
+    lines.append(f"- Success criteria: {'; '.join(current.success_criteria) or '(none yet)'}")
+    lines.append(f"- Value dimensions: {', '.join(current.custom_dimensions) or '(none yet)'}")
+    lines.append(f"- Failure modes: {'; '.join(current.failure_modes) or '(none yet)'}")
+    stakes = "; ".join(filter(None, [current.stakes_good, current.stakes_bad])) or "(not set)"
+    lines.append(f"- Stakes: {stakes}")
     return "\n".join(lines)
 
 
@@ -324,6 +291,10 @@ def context_from_payload(raw: dict | None) -> ValueContext:
         custom_dimensions={
             str(key): str(val) for key, val in (raw.get("custom_dimensions") or {}).items()
         },
+        served_user=raw.get("served_user") or None,
+        failure_modes=[str(item) for item in raw.get("failure_modes") or []],
+        stakes_good=raw.get("stakes_good") or None,
+        stakes_bad=raw.get("stakes_bad") or None,
     )
 
 
@@ -332,6 +303,7 @@ def step_to_dict(step: InterviewStep) -> dict:
     return {
         "done": step.done,
         "field": step.field_name,
+        "object_key": step.object_key,
         "prompt": step.prompt,
         "help": step.help,
         "input_kind": step.input_kind,

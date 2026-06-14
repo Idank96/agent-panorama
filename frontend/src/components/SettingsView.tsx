@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { AgentMappingView, AgentMeta, ValueConfigResponse } from "../types";
+import type { AgentMappingView, AgentMeta, BlueprintObject, ValueConfigResponse } from "../types";
 import {
   type EditableConfig,
   type EditableDef,
@@ -8,16 +8,17 @@ import {
   isDefinedEditable,
   loadValueConfig,
   saveValueConfig,
+  slugify,
   toEditableConfig,
 } from "../lib/valueConfig";
-import { DimensionEditor, Field, ListEditor } from "./ValueFields";
 import { ValueWizard } from "./ValueWizard";
+import { ValueBlueprint } from "./ValueBlueprint";
 
 const POLL_MS = 4_000;
 const DEFAULT_KEY = "__default__";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
-type Mode = "auto" | "wizard" | "form";
+type Mode = "auto" | "wizard" | "blueprint";
 
 interface SettingsViewProps {
   agents: Record<string, AgentMeta>;
@@ -28,16 +29,16 @@ interface ServerMeta {
   agents: { key: string; name: string }[];
   mappings: Record<string, AgentMappingView>;
   ontology: { archetypes: Record<string, string>; primitives: Record<string, string> };
+  blueprint: BlueprintObject[];
 }
 
 /**
- * Settings — the guided "define how value is measured" view.
+ * Value Ontology — the value-definition section.
  *
- * Each agent (plus a fleet default) is an "object" whose value definition the
- * manager builds through an adaptive interview (default for undefined agents)
- * or edits directly in the form. The canonical archetype/primitive layer is
- * surfaced read-only. Editing persists to the live server, which re-judges; the
- * static export has no server, so the view goes read-only there.
+ * A defined agent lands on the read-only {@link ValueBlueprint} (a strategy
+ * briefing of how it creates value); the guided {@link ValueWizard} is the one
+ * editing surface, reached fresh for a new agent or pre-filled to revise one.
+ * Completing the wizard persists to the live server, which re-maps and re-judges.
  */
 export function SettingsView({ agents }: SettingsViewProps) {
   const [draft, setDraft] = useState<EditableConfig | null>(null);
@@ -46,6 +47,7 @@ export function SettingsView({ agents }: SettingsViewProps) {
   const [target, setTarget] = useState<string>(DEFAULT_KEY);
   const [mode, setMode] = useState<Mode>("auto");
   const [status, setStatus] = useState<SaveStatus>("idle");
+  const [customNames, setCustomNames] = useState<Record<string, string>>({});
   const seeded = useRef(false);
 
   useEffect(() => {
@@ -66,13 +68,13 @@ export function SettingsView({ agents }: SettingsViewProps) {
   if (serverUp === false) return <ReadOnlyNotice enabled={meta?.enabled ?? false} />;
   if (!draft || !meta) return <Loading />;
 
-  const objects = listObjects(draft, meta, agents);
+  const objects = listObjects(draft, meta, agents, customNames);
   const def = currentDef(draft, target);
   const mapping = target === DEFAULT_KEY ? null : (meta.mappings[target] ?? null);
   const targetLabel = objects.find((o) => o.key === target)?.label ?? "Agent";
   const wizardName = target === DEFAULT_KEY ? "your agents (fleet default)" : targetLabel;
-  const surface: "intro" | "wizard" | "form" =
-    mode === "auto" ? (isDefinedEditable(def) ? "form" : "intro") : mode;
+  const surface: "intro" | "wizard" | "blueprint" =
+    mode === "auto" ? (isDefinedEditable(def) ? "blueprint" : "intro") : mode;
 
   const selectTarget = (key: string) => {
     setTarget(key);
@@ -80,22 +82,26 @@ export function SettingsView({ agents }: SettingsViewProps) {
     setStatus("idle");
   };
 
-  const update = (next: EditableDef) => {
-    setStatus("idle");
-    setDraft((prev) => (prev ? writeDef(prev, target, next) : prev));
+  const persist = async (next: EditableConfig) => {
+    setStatus("saving");
+    const ok = await saveValueConfig(fromEditableConfig(next));
+    setStatus(ok ? "saved" : "error");
   };
 
   const completeWizard = (next: EditableDef) => {
-    setDraft((prev) => (prev ? writeDef(prev, target, next) : prev));
-    setMode("form");
-    setStatus("idle");
+    const updated = writeDef(draft, target, next);
+    setDraft(updated);
+    setMode("blueprint");
+    void persist(updated);
   };
 
-  const onSave = async () => {
-    if (!draft) return;
-    setStatus("saving");
-    const ok = await saveValueConfig(fromEditableConfig(draft));
-    setStatus(ok ? "saved" : "error");
+  const createOntology = (name: string) => {
+    const key = uniqueKey(slugify(name), objects);
+    setCustomNames((prev) => ({ ...prev, [key]: name }));
+    setDraft((prev) => (prev ? writeDef(prev, key, blankEditableDef()) : prev));
+    setTarget(key);
+    setMode("wizard");
+    setStatus("idle");
   };
 
   return (
@@ -103,60 +109,71 @@ export function SettingsView({ agents }: SettingsViewProps) {
       <header className="ap-topbar">
         <div className="ap-topbar-row">
           <div className="ap-topbar-title">
-            <h1>Settings</h1>
+            <h1>Value Ontology</h1>
             <span className="ap-topbar-sub">
-              Define how value is measured — in your own words, per agent
+              Define how each agent creates value — and how it's measured
             </span>
           </div>
-          {surface === "form" && (
+          {status !== "idle" && (
             <div className="ap-topbar-tools">
-              <SaveButton status={status} onSave={onSave} />
+              <span className="ap-settings-status">{STATUS_LABEL[status]}</span>
             </div>
           )}
         </div>
       </header>
 
       <div className="ap-settings">
-        <ObjectRail objects={objects} target={target} setTarget={selectTarget} />
-        <div className="ap-settings-main">
+        {surface !== "blueprint" && (
+          <ObjectRail objects={objects} target={target} setTarget={selectTarget} />
+        )}
+        <div className={"ap-settings-main" + (surface === "blueprint" ? " is-blueprint" : "")}>
           {surface === "wizard" ? (
             <ValueWizard
               key={target}
               agentName={wizardName}
+              blueprint={meta.blueprint}
               initial={def}
               onComplete={completeWizard}
               onCancel={() => setMode("auto")}
             />
           ) : surface === "intro" ? (
-            <IntroPanel
-              name={wizardName}
-              onStart={() => setMode("wizard")}
-              onManual={() => setMode("form")}
-            />
+            <IntroPanel name={wizardName} onStart={() => setMode("wizard")} />
           ) : (
-            <>
-              <div className="ap-settings-rerun">
-                <button className="ap-link-btn" onClick={() => setMode("wizard")}>
-                  ↺ Re-run guided setup
-                </button>
-              </div>
-              <DefinitionForm
-                title={targetLabel}
-                isDefault={target === DEFAULT_KEY}
-                def={def}
-                onChange={update}
-              />
-              <MappingPanel
-                mapping={mapping}
-                ontology={meta.ontology}
-                isDefault={target === DEFAULT_KEY}
-              />
-            </>
+            <ValueBlueprint
+              agents={objects}
+              target={target}
+              setTarget={selectTarget}
+              def={def}
+              defOf={(key) => currentDef(draft, key)}
+              blueprint={meta.blueprint}
+              mapping={mapping}
+              mappings={meta.mappings}
+              ontology={meta.ontology}
+              agentName={targetLabel}
+              onEdit={() => setMode("wizard")}
+              onNew={createOntology}
+            />
           )}
         </div>
       </div>
     </main>
   );
+}
+
+const STATUS_LABEL: Record<SaveStatus, string> = {
+  idle: "",
+  saving: "Saving…",
+  saved: "Saved — re-judging…",
+  error: "Save failed — retry from the wizard",
+};
+
+/** A context key not already taken by another agent. */
+function uniqueKey(base: string, objects: ObjectRow[]): string {
+  const taken = new Set(objects.map((o) => o.key));
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n += 1;
+  return `${base}-${n}`;
 }
 
 interface ObjectRow {
@@ -169,10 +186,11 @@ function listObjects(
   draft: EditableConfig,
   meta: ServerMeta,
   agents: Record<string, AgentMeta>,
+  customNames: Record<string, string>,
 ): ObjectRow[] {
   const keys = new Set<string>([...meta.agents.map((a) => a.key), ...Object.keys(draft.contexts)]);
   const nameOf = (key: string) =>
-    agents[key]?.name ?? meta.agents.find((a) => a.key === key)?.name ?? key;
+    agents[key]?.name ?? meta.agents.find((a) => a.key === key)?.name ?? customNames[key] ?? key;
   const rows: ObjectRow[] = [...keys].sort().map((key) => ({
     key,
     label: nameOf(key),
@@ -211,6 +229,7 @@ function applyServerState(
     agents: res.agents,
     mappings: res.mappings,
     ontology: res.ontology,
+    blueprint: res.blueprint ?? [],
   });
   if (!ctx.seeded.current) {
     ctx.seeded.current = true;
@@ -244,188 +263,23 @@ function ObjectRail({
   );
 }
 
-function IntroPanel({
-  name,
-  onStart,
-  onManual,
-}: {
-  name: string;
-  onStart: () => void;
-  onManual: () => void;
-}) {
+function IntroPanel({ name, onStart }: { name: string; onStart: () => void }) {
   return (
     <div className="ap-settings-intro">
       <div className="ap-settings-intro-card">
         <h2>Define how value is measured for {name}</h2>
         <p>
-          Answer a few quick questions and we'll build the definition with you — each one
+          Answer a few quick questions and we'll build the value map with you — each one
           tailored to what this agent actually does. Stuck on any of them? Tap{" "}
           <b>Help me figure out</b> for suggestions. You can edit everything afterward.
         </p>
-        <div className="ap-wizard-actions">
+        <div className="ap-wiz-nav">
           <button className="ap-btn ap-save-btn" onClick={onStart}>
             Start guided setup
-          </button>
-          <button className="ap-btn ap-btn-reject" onClick={onManual}>
-            Or edit manually
           </button>
         </div>
       </div>
     </div>
-  );
-}
-
-function DefinitionForm({
-  title,
-  isDefault,
-  def,
-  onChange,
-}: {
-  title: string;
-  isDefault: boolean;
-  def: EditableDef;
-  onChange: (def: EditableDef) => void;
-}) {
-  return (
-    <section className="ap-settings-form">
-      <div className="ap-settings-form-hd">
-        <h2>{title}</h2>
-        <p>
-          {isDefault
-            ? "Applies to every agent unless that agent has its own definition below."
-            : "These fields override the fleet default for this agent."}
-        </p>
-      </div>
-
-      <Field
-        label="Domain"
-        hint="The world this agent works in — so value is judged in your language, not a generic rubric."
-        example="B2B SaaS billing support"
-      >
-        <input
-          className="ap-input"
-          value={def.domain}
-          placeholder="B2B SaaS billing support"
-          onChange={(e) => onChange({ ...def, domain: e.target.value })}
-        />
-      </Field>
-
-      <Field
-        label="What the user is trying to achieve"
-        hint="The goal a conversation should accomplish. Value is judged against this, not a checklist."
-        example="Resolve a billing discrepancy without contacting a human"
-      >
-        <textarea
-          className="ap-input ap-textarea"
-          value={def.userGoal}
-          placeholder="Resolve a billing discrepancy without contacting a human"
-          onChange={(e) => onChange({ ...def, userGoal: e.target.value })}
-        />
-      </Field>
-
-      <Field
-        label="Success criteria"
-        hint="Concrete pass/fail tests for a good outcome. Each is reported met / not met per conversation."
-        example="Refund processed · No repeat contact within 48h"
-      >
-        <ListEditor
-          items={def.successCriteria}
-          placeholder="Refund processed"
-          onChange={(successCriteria) => onChange({ ...def, successCriteria })}
-        />
-      </Field>
-
-      <Field
-        label="Custom value dimensions"
-        hint="Named qualities you want every conversation scored on, 0–10."
-        example="empathy · proactiveness · first-contact resolution"
-      >
-        <DimensionEditor
-          dimensions={def.dimensions}
-          onChange={(dimensions) => onChange({ ...def, dimensions })}
-        />
-      </Field>
-    </section>
-  );
-}
-
-function MappingPanel({
-  mapping,
-  ontology,
-  isDefault,
-}: {
-  mapping: AgentMappingView | null;
-  ontology: { archetypes: Record<string, string>; primitives: Record<string, string> };
-  isDefault: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const lines = mapping
-    ? [
-        ...Object.entries(mapping.dimension_to_primitive),
-        ...Object.entries(mapping.criterion_to_primitive),
-      ]
-    : [];
-  return (
-    <section className="ap-mapping">
-      <button className="ap-mapping-toggle" onClick={() => setOpen((v) => !v)}>
-        <span>{open ? "▾" : "▸"}</span> How this maps to the shared value ontology
-      </button>
-      {open && (
-        <div className="ap-mapping-body">
-          {isDefault ? (
-            <p className="ap-mapping-note">
-              The shared mapping is computed per agent. Pick an agent on the left to see how
-              its definition maps to the comparable layer.
-            </p>
-          ) : !mapping || mapping.source === "default" ? (
-            <p className="ap-mapping-note">
-              Mapping appears here once you save a definition and a model with an API key has
-              classified it. Without one, this agent still gets its own report.
-            </p>
-          ) : (
-            <>
-              <div className="ap-mapping-arch">
-                <span className="ap-mapping-arch-key">{mapping.archetype}</span>
-                <span className="ap-mapping-arch-desc">{mapping.archetype_description}</span>
-                <span className="ap-mapping-arch-conf">
-                  {Math.round(mapping.archetype_confidence * 100)}% confident
-                </span>
-              </div>
-              <div className="ap-mapping-lines">
-                {lines.map(([from, primitive]) => (
-                  <div className="ap-mapping-line" key={from}>
-                    <span className="ap-mapping-from">{from}</span>
-                    <span className="ap-mapping-arrow">→</span>
-                    <span className="ap-mapping-to" title={ontology.primitives[primitive] ?? ""}>
-                      {primitive}
-                    </span>
-                  </div>
-                ))}
-                {lines.length === 0 && (
-                  <p className="ap-mapping-note">No dimensions or criteria to map yet.</p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function SaveButton({ status, onSave }: { status: SaveStatus; onSave: () => void }) {
-  const label =
-    status === "saving"
-      ? "Saving…"
-      : status === "saved"
-        ? "Saved — re-judging…"
-        : status === "error"
-          ? "Save failed — retry"
-          : "Save value definition";
-  return (
-    <button className="ap-btn ap-save-btn" onClick={onSave} disabled={status === "saving"}>
-      {label}
-    </button>
   );
 }
 
@@ -435,7 +289,7 @@ function ReadOnlyNotice({ enabled }: { enabled: boolean }) {
       <header className="ap-topbar">
         <div className="ap-topbar-row">
           <div className="ap-topbar-title">
-            <h1>Settings</h1>
+            <h1>Value Ontology</h1>
             <span className="ap-topbar-sub">Define how value is measured</span>
           </div>
         </div>
@@ -461,7 +315,7 @@ function Loading() {
       <header className="ap-topbar">
         <div className="ap-topbar-row">
           <div className="ap-topbar-title">
-            <h1>Settings</h1>
+            <h1>Value Ontology</h1>
             <span className="ap-topbar-sub">Loading…</span>
           </div>
         </div>

@@ -1,4 +1,4 @@
-"""Tests for the guided value-definition interview."""
+"""Tests for the blueprint-driven value-definition interview."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ class _FakeChat:
         return _FakeStructured(self._data)
 
 
-def _full_context() -> ValueContext:
+def _required() -> ValueContext:
     return ValueContext(
         domain="support",
         user_goal="resolve the issue",
@@ -53,98 +53,113 @@ def _full_context() -> ValueContext:
     )
 
 
-def test_fallback_asks_domain_first_without_provider() -> None:
+def _full() -> ValueContext:
+    ctx = _required()
+    ctx.served_user = "a frustrated customer"
+    ctx.failure_modes = ["wrong refund amount"]
+    ctx.stakes_good = "saves time"
+    ctx.stakes_bad = "chargeback"
+    return ctx
+
+
+def test_first_gap_is_the_agent_domain() -> None:
     step = advance_interview("Support Bot", [], ValueContext(), model="bogus:none")
     assert step.done is False
+    assert step.object_key == "agent"
     assert step.field_name == "domain"
     assert step.input_kind == "text"
-    assert step.suggestions  # static examples
+    assert step.suggestions
 
 
-def test_fallback_orders_fields_then_completes() -> None:
+def test_gap_advances_to_success_criteria_once_goal_is_set() -> None:
     partial = ValueContext(domain="support", user_goal="resolve")
     step = advance_interview("Support Bot", [], partial, model="bogus:none")
-    assert step.field_name == "success_criteria"
+    assert step.object_key == "success_criteria"
     assert step.input_kind == "list"
 
-    done = advance_interview("Support Bot", [], _full_context(), model="bogus:none")
-    assert done.done is True
-    assert done.recap
+
+def test_required_complete_moves_to_recommended_not_done() -> None:
+    step = advance_interview("Support Bot", [], _required(), model="bogus:none")
+    assert step.done is False
+    assert step.object_key in {"user", "failure_modes", "stakes"}
 
 
-def test_llm_step_is_normalized() -> None:
+def test_everything_filled_completes_with_recap() -> None:
+    step = advance_interview("Support Bot", [], _full(), model="bogus:none")
+    assert step.done is True
+    assert step.recap
+
+
+def test_model_phrasing_used_but_target_comes_from_the_gap() -> None:
+    # Model tries to mark done and pick a different field; the gap wins.
     chat = _FakeChat(
         {
-            "done": False,
-            "field": "success_criteria",
-            "prompt": "What marks a good outcome?",
-            "help": "These are reported per conversation.",
-            "suggestions": ["resolved", "no escalation"],
+            "done": True,
+            "field": "custom_dimensions",
+            "prompt": "What does this agent do for people?",
+            "suggestions": ["IT helpdesk", "billing support"],
         }
     )
-    step = advance_interview("Support Bot", [], ValueContext(domain="x"), chat_model=chat)
-    assert step.field_name == "success_criteria"
-    assert step.input_kind == "list"
-    assert step.prompt.startswith("What marks")
-
-
-def test_invalid_field_coerced_to_next_missing() -> None:
-    chat = _FakeChat({"done": False, "field": "not_a_field", "prompt": "?"})
     step = advance_interview("Support Bot", [], ValueContext(), chat_model=chat)
-    assert step.field_name == "domain"
-
-
-def test_done_overridden_when_minimums_unmet() -> None:
-    chat = _FakeChat({"done": True, "recap": "all set"})
-    step = advance_interview("Support Bot", [], ValueContext(domain="only"), chat_model=chat)
     assert step.done is False
-    assert step.field_name == "user_goal"
+    assert step.field_name == "domain"  # from the gap, not the model
+    assert step.object_key == "agent"
+    assert step.prompt == "What does this agent do for people?"  # phrasing from the model
+    assert step.suggestions == ["IT helpdesk", "billing support"]
 
 
-def test_done_respected_when_minimums_met() -> None:
-    chat = _FakeChat({"done": True, "recap": "complete"})
-    step = advance_interview("Support Bot", [], _full_context(), chat_model=chat)
-    assert step.done is True
-    assert step.recap == "complete"
+def test_recommended_gaps_skipped_after_question_cap() -> None:
+    transcript = [InterviewTurn("x", "?", str(i)) for i in range(MAX_QUESTIONS)]
+    step = advance_interview("Support Bot", transcript, _required(), model="bogus:none")
+    assert step.done is True  # only recommended gaps remain, and we're at the cap
 
 
-def test_question_cap_forces_completion() -> None:
-    transcript = [InterviewTurn("domain", "?", str(i)) for i in range(MAX_QUESTIONS)]
+def test_required_gaps_asked_even_past_the_cap() -> None:
+    transcript = [InterviewTurn("x", "?", str(i)) for i in range(MAX_QUESTIONS + 3)]
     step = advance_interview("Support Bot", transcript, ValueContext(), model="bogus:none")
-    assert step.done is True
+    assert step.done is False  # domain is required; the cap never skips required
+    assert step.field_name == "domain"
 
 
 def test_suggest_uses_model_then_falls_back() -> None:
     chat = _FakeChat({"suggestions": ["a", "b", "c"]})
     options = suggest_options("Bot", ValueContext(), "domain", "q?", chat_model=chat)
     assert options == ["a", "b", "c"]
-    # No provider -> static fallback for the field.
     fallback = suggest_options("Bot", ValueContext(), "domain", "q?", model="bogus:none")
     assert len(fallback) >= 1
 
 
-def test_payload_helpers_round_trip() -> None:
+def test_payload_helpers_round_trip_new_fields() -> None:
     ctx = context_from_payload(
         {
             "domain": "support",
-            "user_goal": "resolve",
-            "success_criteria": ["a"],
-            "custom_dimensions": {"empathy": "warmth"},
+            "served_user": "a customer",
+            "failure_modes": ["wrong amount"],
+            "stakes_good": "saves time",
         }
     )
-    assert ctx.domain == "support"
-    assert ctx.success_criteria == ["a"]
+    assert ctx.served_user == "a customer"
+    assert ctx.failure_modes == ["wrong amount"]
 
     turns = turns_from_payload([{"field": "domain", "prompt": "q", "answer": "support"}])
     assert turns[0].field_name == "domain"
-    assert turns[0].answer == "support"
 
 
-def test_step_to_dict_uses_field_json_key() -> None:
+def test_step_to_dict_carries_object_key() -> None:
     step = advance_interview("Support Bot", [], ValueContext(), model="bogus:none")
     payload = step_to_dict(step)
     assert payload["field"] == "domain"
-    assert set(payload) == {"done", "field", "prompt", "help", "input_kind", "suggestions", "recap"}
+    assert payload["object_key"] == "agent"
+    assert set(payload) == {
+        "done",
+        "field",
+        "object_key",
+        "prompt",
+        "help",
+        "input_kind",
+        "suggestions",
+        "recap",
+    }
 
 
 def test_interview_endpoint_smoke() -> None:
@@ -160,6 +175,7 @@ def test_interview_endpoint_smoke() -> None:
         json={"agent_name": "Support Bot", "transcript": [], "current": {}, "action": "advance"},
     ).json()
     assert adv["field"] == "domain"
+    assert adv["object_key"] == "agent"
     assert adv["done"] is False
 
     sug = client.post(
@@ -173,3 +189,18 @@ def test_interview_endpoint_smoke() -> None:
     ).json()
     assert isinstance(sug["suggestions"], list)
     assert len(sug["suggestions"]) >= 1
+
+
+def test_value_config_response_includes_blueprint() -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from agent_panorama.config import ReportConfig
+    from agent_panorama.live.server import RunStore, create_app
+
+    client = TestClient(create_app(ReportConfig(), RunStore(), Path(__file__).resolve().parent))
+    data = client.get("/api/value-config").json()
+    assert "blueprint" in data
+    keys = [obj["key"] for obj in data["blueprint"]]
+    assert keys[0] == "agent"
+    assert "failure_modes" in keys and "stakes" in keys

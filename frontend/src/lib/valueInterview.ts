@@ -9,6 +9,7 @@ export type InputKind = "text" | "longtext" | "list" | "dimensions";
 export interface InterviewStep {
   done: boolean;
   field: string | null;
+  object_key: string;
   prompt: string;
   help: string;
   input_kind: InputKind;
@@ -23,22 +24,6 @@ export interface InterviewTurn {
   answer: string;
 }
 
-/** Map a step's target field to the editable-definition slice it edits. */
-export const fieldOf = (field: string | null): keyof EditableDef | null => {
-  switch (field) {
-    case "domain":
-      return "domain";
-    case "user_goal":
-      return "userGoal";
-    case "success_criteria":
-      return "successCriteria";
-    case "custom_dimensions":
-      return "dimensions";
-    default:
-      return null;
-  }
-};
-
 /** Always-object wire form of a (possibly partial) editable definition. */
 export const defToWire = (def: EditableDef): ValueDefinition => {
   const custom_dimensions: Record<string, string> = {};
@@ -50,18 +35,32 @@ export const defToWire = (def: EditableDef): ValueDefinition => {
     user_goal: def.userGoal.trim() || null,
     success_criteria: def.successCriteria.map((c) => c.trim()).filter(Boolean),
     custom_dimensions,
+    served_user: def.servedUser.trim() || null,
+    failure_modes: def.failureModes.map((m) => m.trim()).filter(Boolean),
+    stakes_good: def.stakesGood.trim() || null,
+    stakes_bad: def.stakesBad.trim() || null,
   };
 };
+
+const joinList = (items: string[]) => items.map((c) => c.trim()).filter(Boolean).join("; ");
 
 /** A readable one-line answer for the transcript, given the step's field. */
 export const answerSummary = (field: string | null, def: EditableDef): string => {
   switch (field) {
     case "domain":
       return def.domain.trim();
+    case "served_user":
+      return def.servedUser.trim();
     case "user_goal":
       return def.userGoal.trim();
     case "success_criteria":
-      return def.successCriteria.map((c) => c.trim()).filter(Boolean).join("; ");
+      return joinList(def.successCriteria);
+    case "failure_modes":
+      return joinList(def.failureModes);
+    case "stakes_good":
+      return def.stakesGood.trim();
+    case "stakes_bad":
+      return def.stakesBad.trim();
     case "custom_dimensions":
       return def.dimensions
         .filter((d) => d.name.trim())
@@ -72,6 +71,9 @@ export const answerSummary = (field: string | null, def: EditableDef): string =>
   }
 };
 
+const appendUnique = (items: string[], value: string) =>
+  items.includes(value) ? items : [...items, value];
+
 /** Apply a clicked suggestion to the definition, by the current field's kind. */
 export const applySuggestion = (
   field: string | null,
@@ -81,12 +83,18 @@ export const applySuggestion = (
   switch (field) {
     case "domain":
       return { ...def, domain: suggestion };
+    case "served_user":
+      return { ...def, servedUser: suggestion };
     case "user_goal":
       return { ...def, userGoal: suggestion };
+    case "stakes_good":
+      return { ...def, stakesGood: suggestion };
+    case "stakes_bad":
+      return { ...def, stakesBad: suggestion };
     case "success_criteria":
-      return def.successCriteria.includes(suggestion)
-        ? def
-        : { ...def, successCriteria: [...def.successCriteria, suggestion] };
+      return { ...def, successCriteria: appendUnique(def.successCriteria, suggestion) };
+    case "failure_modes":
+      return { ...def, failureModes: appendUnique(def.failureModes, suggestion) };
     case "custom_dimensions":
       return def.dimensions.some((d) => d.name === suggestion)
         ? def

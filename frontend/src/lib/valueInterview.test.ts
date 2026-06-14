@@ -1,23 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { answerSummary, applySuggestion, defToWire, fieldOf } from "./valueInterview";
-import type { EditableDef } from "./valueConfig";
+import { answerSummary, applySuggestion, defToWire } from "./valueInterview";
+import { blankEditableDef, type EditableDef } from "./valueConfig";
 
 const def = (over: Partial<EditableDef> = {}): EditableDef => ({
-  domain: "",
-  userGoal: "",
-  successCriteria: [],
-  dimensions: [],
+  ...blankEditableDef(),
   ...over,
-});
-
-describe("fieldOf", () => {
-  it("maps wire fields to editable keys", () => {
-    expect(fieldOf("domain")).toBe("domain");
-    expect(fieldOf("user_goal")).toBe("userGoal");
-    expect(fieldOf("success_criteria")).toBe("successCriteria");
-    expect(fieldOf("custom_dimensions")).toBe("dimensions");
-    expect(fieldOf("nope")).toBeNull();
-  });
 });
 
 describe("defToWire", () => {
@@ -25,12 +12,13 @@ describe("defToWire", () => {
     const wire = defToWire(
       def({
         domain: " support ",
-        userGoal: "",
         successCriteria: ["resolved", "  "],
         dimensions: [
           { name: "empathy", description: " warmth " },
           { name: "  ", description: "ignored" },
         ],
+        failureModes: ["wrong amount", "  "],
+        stakesGood: " saves time ",
       }),
     );
     expect(wire).toEqual({
@@ -38,6 +26,10 @@ describe("defToWire", () => {
       user_goal: null,
       success_criteria: ["resolved"],
       custom_dimensions: { empathy: "warmth" },
+      served_user: null,
+      failure_modes: ["wrong amount"],
+      stakes_good: "saves time",
+      stakes_bad: null,
     });
   });
 });
@@ -68,5 +60,13 @@ describe("applySuggestion", () => {
     const withDim = applySuggestion("custom_dimensions", def(), "empathy");
     expect(withDim.dimensions).toEqual([{ name: "empathy", description: "" }]);
     expect(applySuggestion("custom_dimensions", withDim, "empathy").dimensions).toHaveLength(1);
+  });
+
+  it("handles the new ontology fields", () => {
+    expect(applySuggestion("served_user", def(), "a customer").servedUser).toBe("a customer");
+    expect(applySuggestion("stakes_bad", def(), "a chargeback").stakesBad).toBe("a chargeback");
+    const withMode = applySuggestion("failure_modes", def(), "wrong amount");
+    expect(withMode.failureModes).toEqual(["wrong amount"]);
+    expect(answerSummary("failure_modes", withMode)).toBe("wrong amount");
   });
 });

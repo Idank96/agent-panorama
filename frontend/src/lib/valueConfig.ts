@@ -5,9 +5,13 @@ const VALUE_CONFIG_URL = "/api/value-config";
 /** The form-friendly shape of one agent's value definition (strings, arrays). */
 export interface EditableDef {
   domain: string;
+  servedUser: string;
   userGoal: string;
   successCriteria: string[];
   dimensions: { name: string; description: string }[];
+  failureModes: string[];
+  stakesGood: string;
+  stakesBad: string;
 }
 
 /** The form-friendly shape of the whole value configuration. */
@@ -20,29 +24,74 @@ export interface EditableConfig {
 
 export const blankEditableDef = (): EditableDef => ({
   domain: "",
+  servedUser: "",
   userGoal: "",
   successCriteria: [],
   dimensions: [],
+  failureModes: [],
+  stakesGood: "",
+  stakesBad: "",
 });
 
 /** Map a server value definition into the editable form shape. */
 export const toEditableDef = (def: ValueDefinition | null | undefined): EditableDef => ({
   domain: def?.domain ?? "",
+  servedUser: def?.served_user ?? "",
   userGoal: def?.user_goal ?? "",
   successCriteria: [...(def?.success_criteria ?? [])],
   dimensions: Object.entries(def?.custom_dimensions ?? {}).map(([name, description]) => ({
     name,
     description,
   })),
+  failureModes: [...(def?.failure_modes ?? [])],
+  stakesGood: def?.stakes_good ?? "",
+  stakesBad: def?.stakes_bad ?? "",
 });
+
+/** A URL/key-safe slug for a manually-named agent ontology. */
+export const slugify = (name: string): string =>
+  name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "agent";
+
+/**
+ * A deterministic one-sentence summary of how an agent creates value, composed
+ * from the definition for the Value Blueprint's executive summary (no LLM).
+ */
+export const fallbackSummary = (e: EditableDef): string => {
+  const goal = e.userGoal.trim();
+  const who = e.servedUser.trim();
+  const dims = e.dimensions.map((d) => d.name.trim()).filter(Boolean);
+  const audience = who ? lowerFirst(who) : "users";
+  const lead = goal
+    ? `This agent helps ${audience} ${lowerFirst(goal)}`
+    : `This agent supports ${audience}`;
+  const domainClause = e.domain.trim() ? ` in ${e.domain.trim()}` : "";
+  const dimClause =
+    dims.length > 0 ? `, with success measured on ${joinHuman(dims)}` : "";
+  return `${stripPeriod(lead)}${domainClause}${dimClause}.`;
+};
+
+const lowerFirst = (text: string): string => (text ? text[0].toLowerCase() + text.slice(1) : text);
+const stripPeriod = (text: string): string => text.replace(/[.\s]+$/, "");
+const joinHuman = (items: string[]): string =>
+  items.length <= 1
+    ? (items[0] ?? "")
+    : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 
 /** Whether an editable definition carries any signal worth sending. */
 export const isDefinedEditable = (e: EditableDef): boolean =>
   !!(
     e.domain.trim() ||
+    e.servedUser.trim() ||
     e.userGoal.trim() ||
     e.successCriteria.some((c) => c.trim()) ||
-    e.dimensions.some((d) => d.name.trim())
+    e.dimensions.some((d) => d.name.trim()) ||
+    e.failureModes.some((m) => m.trim()) ||
+    e.stakesGood.trim() ||
+    e.stakesBad.trim()
   );
 
 /** Map an editable definition back to the server shape, or null when empty. */
@@ -57,6 +106,10 @@ export const fromEditableDef = (e: EditableDef): ValueDefinition | null => {
     user_goal: e.userGoal.trim() || null,
     success_criteria: e.successCriteria.map((c) => c.trim()).filter(Boolean),
     custom_dimensions: dimensions,
+    served_user: e.servedUser.trim() || null,
+    failure_modes: e.failureModes.map((m) => m.trim()).filter(Boolean),
+    stakes_good: e.stakesGood.trim() || null,
+    stakes_bad: e.stakesBad.trim() || null,
   };
 };
 
