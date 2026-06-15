@@ -1,13 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   blankEditableDef,
   fromEditableConfig,
   fromEditableDef,
   isDefinedEditable,
+  loadValueConfig,
   toEditableConfig,
   toEditableDef,
 } from "./valueConfig";
-import type { ValueConfigShape, ValueDefinition } from "../types";
+import type { ValueConfigResponse, ValueConfigShape, ValueDefinition } from "../types";
 
 const sampleDef = (): ValueDefinition => ({
   domain: "customer support",
@@ -73,5 +74,46 @@ describe("value config round-trip", () => {
     const restored = fromEditableConfig(editable);
     expect(restored.contexts).toEqual({});
     expect(restored.default).toBeNull();
+  });
+});
+
+const configResponse = (): ValueConfigResponse => ({
+  enabled: true,
+  config: { default: sampleDef(), contexts: {} },
+  agents: [{ key: "support-agent", name: "support-agent" }],
+  mappings: {},
+  ontology: { archetypes: {}, primitives: {} },
+  blueprint: [],
+});
+
+const okResponse = (body: unknown) => ({ ok: true, json: async () => body }) as Response;
+const notFound = () => ({ ok: false, json: async () => ({}) }) as Response;
+
+describe("loadValueConfig source fallback", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns the live config as editable when the server answers", async () => {
+    const body = configResponse();
+    const fetchMock = vi.fn(async () => okResponse(body));
+    vi.stubGlobal("fetch", fetchMock);
+    const loaded = await loadValueConfig();
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/value-config");
+    expect(loaded).toEqual({ response: body, live: true });
+  });
+
+  it("falls back to the static export as read-only when no server", async () => {
+    const body = configResponse();
+    const fetchMock = vi.fn(async (url: string) =>
+      url === "/api/value-config" ? notFound() : okResponse(body),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const loaded = await loadValueConfig();
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "value-config.json");
+    expect(loaded).toEqual({ response: body, live: false });
+  });
+
+  it("returns null when neither source is reachable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => notFound()));
+    expect(await loadValueConfig()).toBeNull();
   });
 });

@@ -52,7 +52,7 @@ const COMPACT: Layout = (() => {
 })();
 
 // Roomier layout for the expanded lightbox so full content and edge labels have
-// space — nodes pushed well apart so relation pills never collide.
+// space - nodes pushed well apart so relation pills never collide.
 const DETAILED: Layout = (() => {
   const w = 1240;
   const h = 920;
@@ -88,7 +88,7 @@ function nodeLines(objectKey: string, def: EditableDef): string[] {
     case "value_dimensions":
       return def.dimensions
         .filter((d) => d.name.trim())
-        .map((d) => (d.description.trim() ? `${d.name.trim()} — ${d.description.trim()}` : d.name.trim()));
+        .map((d) => (d.description.trim() ? `${d.name.trim()} - ${d.description.trim()}` : d.name.trim()));
     case "failure_modes":
       return list(def.failureModes);
     case "stakes":
@@ -148,7 +148,7 @@ const stateOf = (key: string, progress: WizardProgress): NodeState =>
 /**
  * The wizard's live ontology map as a constellation: the Goal node sits at the
  * center with every other concept orbiting it, joined by gently curved relation
- * lines with floating label pills. Each node reflects its progression — completed
+ * lines with floating label pills. Each node reflects its progression - completed
  * (solid, green check), active (purple, pulsing, "In progress"), or still-to-do
  * (a ghost card with placeholder lines).
  */

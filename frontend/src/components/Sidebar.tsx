@@ -32,7 +32,7 @@ const HEALTH_COLOR: Record<AgentMeta["health"], string> = {
   red: "#c25b4c",
 };
 
-/** Left sidebar — logo, primary nav, agent roster with health dots. */
+/** Left sidebar - logo, primary nav, agent roster with health dots. */
 export function Sidebar({
   nav,
   setNav,

@@ -2,10 +2,10 @@ import type { AgentMeta, FeedEntry, ValueRollup, ValueTotals } from "../types";
 import { AgentBadge, ScorePill } from "./Feed";
 
 const pct = (rate: number | null): string =>
-  rate !== null ? Math.round(rate * 100) + "%" : "—";
+  rate !== null ? Math.round(rate * 100) + "%" : "-";
 
 const avg = (score: number | null): string =>
-  score !== null ? score.toFixed(1) : "—";
+  score !== null ? score.toFixed(1) : "-";
 
 interface ValueViewProps {
   entries: FeedEntry[];
@@ -16,7 +16,7 @@ interface ValueViewProps {
   onSelect: (id: string) => void;
 }
 
-/** Center column — the value lens: was the fleet worth it for its users? */
+/** Center column - the value lens: was the fleet worth it for its users? */
 export function ValueView({
   entries,
   agents,
@@ -60,7 +60,7 @@ export function ValueView({
               </div>
               <div className="ap-value-hero is-cost">
                 <span className="ap-value-hero-label">Cost per valuable conversation</span>
-                <span className="ap-value-hero-num">{totals.costPerValuable ?? "—"}</span>
+                <span className="ap-value-hero-num">{totals.costPerValuable ?? "-"}</span>
                 <span className="ap-value-hero-sub">
                   {totals.costPerValuable ? "total spend ÷ valuable outcomes" : "enable model_prices for cost"}
                 </span>
@@ -91,7 +91,7 @@ export function ValueView({
                     <span>{r.judged}</span>
                     <span className="ap-value-strong">{avg(r.avgValueScore)}</span>
                     <span>{pct(r.valuableRate)}</span>
-                    <span>{r.costPerValuable ?? "—"}</span>
+                    <span>{r.costPerValuable ?? "-"}</span>
                   </div>
                 ))}
               </div>

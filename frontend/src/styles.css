@@ -1,4 +1,4 @@
-/* Agent Panorama — enterprise dashboard styling. Light mode. */
+/* Agent Panorama - enterprise dashboard styling. Light mode. */
 :root {
   --ap-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Helvetica Neue", Arial, sans-serif;
 
@@ -365,7 +365,7 @@ body {
   margin: 0; font-size: 12.5px; color: var(--ap-red-tx);
 }
 
-/* Detail panel — value verdict */
+/* Detail panel - value verdict */
 .ap-value-verdict { display: flex; flex-direction: column; gap: 9px; }
 .ap-value-verdict-top { display: flex; align-items: center; gap: 8px; }
 .ap-value-outcome { font-size: 13px; font-weight: 600; }
@@ -1038,6 +1038,13 @@ body {
 .ap-bp-cta-status { font-size: 13.5px; font-weight: 600; color: var(--ap-green-tx); }
 .ap-bp-cta-actions { display: flex; gap: 8px; }
 .ap-bp-cta-actions .ap-btn { height: 36px; padding: 0 16px; font-size: 13px; }
+.ap-bp-cta-readonly { font-size: 12.5px; color: var(--ap-text-3); }
+.ap-bp-cta-readonly code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; color: var(--ap-text-2);
+  background: var(--ap-bg); border: 1px solid var(--ap-border);
+  padding: 1px 6px; border-radius: 5px;
+}
 
 @media (max-width: 900px) {
   .ap-bp-grid { grid-template-columns: 1fr; }

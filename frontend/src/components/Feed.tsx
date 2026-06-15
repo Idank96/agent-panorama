@@ -154,7 +154,7 @@ interface FeedProps {
   filterName: string | null;
 }
 
-/** Center column — top bar + chronological activity feed. */
+/** Center column - top bar + chronological activity feed. */
 export function Feed({
   entries,
   agents,

@@ -137,20 +137,37 @@ export const fromEditableConfig = (e: EditableConfig): ValueConfigShape => {
   return config;
 };
 
-/**
- * Load the current value configuration from the live server.
- *
- * Returns null when no live server is reachable (e.g. the static export),
- * which the Settings view renders as a read-only state.
- */
-export const loadValueConfig = async (): Promise<ValueConfigResponse | null> => {
+const VALUE_CONFIG_STATIC_URL = "value-config.json";
+
+/** A loaded value configuration plus whether it came from an editable live server. */
+export interface LoadedValueConfig {
+  response: ValueConfigResponse;
+  live: boolean;
+}
+
+const fetchValueConfig = async (url: string): Promise<ValueConfigResponse | null> => {
   try {
-    const res = await fetch(VALUE_CONFIG_URL);
+    const res = await fetch(url);
     if (!res.ok) return null;
     return (await res.json()) as ValueConfigResponse;
   } catch {
     return null;
   }
+};
+
+/**
+ * Load the current value configuration.
+ *
+ * Tries the live server first (editable), then a static `value-config.json`
+ * export (read-only, used by the no-install demo). Returns null only when
+ * neither is reachable, which the Settings view renders as an empty state.
+ */
+export const loadValueConfig = async (): Promise<LoadedValueConfig | null> => {
+  const live = await fetchValueConfig(VALUE_CONFIG_URL);
+  if (live) return { response: live, live: true };
+  const stat = await fetchValueConfig(VALUE_CONFIG_STATIC_URL);
+  if (stat) return { response: stat, live: false };
+  return null;
 };
 
 /** Persist the value configuration; the server re-maps and re-judges in the background. */

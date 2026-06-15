@@ -14,7 +14,7 @@ export const demoFeed: FeedEntry[] = [
     summary:
       "Found a mutually open slot and sent calendar invites to all four attendees.",
     facts: [
-      ["Meeting title", "Partnership intro — Uber × Acme"],
+      ["Meeting title", "Partnership intro - Uber × Acme"],
       ["Date & time", "Thu, June 19 · 12:00–12:45 PM PT"],
       ["Attendees", "D. Khosrowshahi (Uber), J. Park, M. Lee, You"],
       ["Location", "Google Meet (link generated)"],
@@ -42,7 +42,7 @@ export const demoFeed: FeedEntry[] = [
       ["Issue", "Duplicate charge"],
       ["Refund amount", "$129.00"],
       ["Resolved", "June 5, 2026 · 11:59 PM"],
-      ["Ticket record", "Updated — stage: Resolved"],
+      ["Ticket record", "Updated - stage: Resolved"],
     ],
     tokens: { used: 1840, cost: "$0.022" },
     policy: {
@@ -54,7 +54,7 @@ export const demoFeed: FeedEntry[] = [
   {
     id: "e3",
     agent: "funding",
-    action: "Sent term sheet to CustomerX Ltd. — $240K deal",
+    action: "Sent term sheet to CustomerX Ltd. - $240K deal",
     time: "40m ago",
     fullTime: "May 31, 2026 · 9:04 AM",
     status: "completed",
@@ -65,7 +65,7 @@ export const demoFeed: FeedEntry[] = [
       ["Deal value", "$240,000 ARR"],
       ["Contract term", "24 months"],
       ["Template", "Enterprise SaaS v3 (legal-approved)"],
-      ["Sent via", "DocuSign — awaiting signature"],
+      ["Sent via", "DocuSign - awaiting signature"],
     ],
     tokens: { used: 5260, cost: "$0.064" },
     policy: {
@@ -82,7 +82,7 @@ export const demoFeed: FeedEntry[] = [
     fullTime: "May 31, 2026 · 8:51 AM",
     status: "pending",
     summary:
-      "Refund scoring fell inside the ambiguous band — escalating to a support lead before advancing.",
+      "Refund scoring fell inside the ambiguous band - escalating to a support lead before advancing.",
     facts: [
       ["Order", "#10318"],
       ["Issue", "Disputed charge"],
@@ -107,7 +107,7 @@ export const demoFeed: FeedEntry[] = [
     summary:
       "No common slot inside the 2-week window; partner calendar access was read-only.",
     facts: [
-      ["Goal", "Q3 roadmap sync — Acme × Microsoft"],
+      ["Goal", "Q3 roadmap sync - Acme × Microsoft"],
       ["Window searched", "June 2 – June 16"],
       ["Conflict", "No overlap across 6 attendees"],
       ["Blocker", "Partner calendar read-only"],
@@ -130,7 +130,7 @@ export const demoFeed: FeedEntry[] = [
     summary:
       "Inventory dipped below the reorder point; placed a replenishment PO with the preferred supplier.",
     facts: [
-      ["Component", "#A-224 — M3 hex standoff"],
+      ["Component", "#A-224 - M3 hex standoff"],
       ["Quantity", "500 units"],
       ["Supplier", "Supplier B (preferred)"],
       ["Unit cost", "$0.42 · total $210.00"],
@@ -146,7 +146,7 @@ export const demoFeed: FeedEntry[] = [
   {
     id: "e7",
     agent: "ops",
-    action: "Detected shipping delay on PO #5512 — notified warehouse lead",
+    action: "Detected shipping delay on PO #5512 - notified warehouse lead",
     time: "4h ago",
     fullTime: "May 31, 2026 · 5:30 AM",
     status: "completed",
@@ -169,7 +169,7 @@ export const demoFeed: FeedEntry[] = [
   {
     id: "e8",
     agent: "funding",
-    action: "Drafted Q2 investor update — held for your review",
+    action: "Drafted Q2 investor update - held for your review",
     time: "5h ago",
     fullTime: "May 31, 2026 · 4:12 AM",
     status: "pending",

@@ -23,12 +23,13 @@ interface ValueBlueprintProps {
   mappings: Record<string, AgentMappingView>;
   ontology: { archetypes: Record<string, string>; primitives: Record<string, string> };
   agentName: string;
-  onEdit: () => void;
-  onNew: (name: string) => void;
+  readOnly?: boolean;
+  onEdit?: () => void;
+  onNew?: (name: string) => void;
 }
 
 /**
- * The Value Blueprint — the read-only "review & organize" view a manager lands on
+ * The Value Blueprint - the read-only "review & organize" view a manager lands on
  * once an agent's value ontology is defined. It reframes the ontology objects as a
  * strategy briefing: an executive summary, a snapshot constellation, a plain-language
  * value narrative, and measurement / stakes / mapping cards, with a switcher across
@@ -45,6 +46,7 @@ export function ValueBlueprint({
   mappings,
   ontology,
   agentName,
+  readOnly = false,
   onEdit,
   onNew,
 }: ValueBlueprintProps) {
@@ -81,12 +83,20 @@ export function ValueBlueprint({
 
       <footer className="ap-bp-cta">
         <span className="ap-bp-cta-status">✓ Value definition complete</span>
-        <div className="ap-bp-cta-actions">
-          <button className="ap-btn ap-btn-reject" onClick={onEdit}>
-            Edit ontology
-          </button>
-          <NewOntologyButton onNew={onNew} />
-        </div>
+        {readOnly ? (
+          <span className="ap-bp-cta-readonly">
+            Read-only demo - run <code>agent-panorama serve</code> to define and edit your own.
+          </span>
+        ) : (
+          <div className="ap-bp-cta-actions">
+            {onEdit && (
+              <button className="ap-btn ap-btn-reject" onClick={onEdit}>
+                Edit ontology
+              </button>
+            )}
+            {onNew && <NewOntologyButton onNew={onNew} />}
+          </div>
+        )}
       </footer>
     </div>
   );
@@ -103,7 +113,7 @@ function AgentSwitcher({
   agents: BlueprintAgentRow[];
   target: string;
   setTarget: (key: string) => void;
-  onNew: (name: string) => void;
+  onNew?: (name: string) => void;
 }) {
   return (
     <div className="ap-bp-switch">
@@ -116,7 +126,7 @@ function AgentSwitcher({
           {a.label}
         </button>
       ))}
-      <NewOntologyButton onNew={onNew} compact />
+      {onNew && <NewOntologyButton onNew={onNew} compact />}
     </div>
   );
 }
@@ -462,7 +472,7 @@ function FleetCompare({
                   onClick={() => setTarget(a.key)}
                 >
                   <td>{a.label}</td>
-                  <td>{m && m.source !== "default" ? m.archetype : "—"}</td>
+                  <td>{m && m.source !== "default" ? m.archetype : "-"}</td>
                   <td>{blueprintCompleteness(blueprint, d)}%</td>
                   <td>{cleanList(d.failureModes).length}</td>
                 </tr>

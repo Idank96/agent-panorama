@@ -1,0 +1,341 @@
+{
+  "enabled": true,
+  "config": {
+    "judge_model": "google_genai:gemini-2.5-flash-lite",
+    "max_judgments": 50,
+    "include_single_runs": true,
+    "default": {
+      "domain": "customer support for a SaaS / e-commerce product",
+      "user_goal": "get their specific issue fully resolved in the conversation, without needing a human",
+      "success_criteria": [
+        "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)",
+        "no human escalation was required"
+      ],
+      "custom_dimensions": {
+        "self_service": "Did the customer finish without needing a human?",
+        "actually_resolved": "Was the concrete issue fixed, or just politely deflected?"
+      },
+      "served_user": null,
+      "failure_modes": [],
+      "stakes_good": null,
+      "stakes_bad": null
+    },
+    "contexts": {
+      "support-agent": {
+        "domain": "front-line customer support for a SaaS product (logins, accounts, how-to, account changes)",
+        "user_goal": "get their specific, stated issue fully resolved in one conversation without waiting for a human",
+        "success_criteria": [
+          "the customer's concrete problem was actually resolved, not just acknowledged or sent to an FAQ",
+          "the resolution happened in-conversation, with no human handoff required",
+          "the customer was not asked to repeat information the agent already had"
+        ],
+        "custom_dimensions": {
+          "self_service": "Did the customer finish without needing a human?",
+          "actually_resolved": "Was the concrete issue fixed, or just politely deflected to a policy link?",
+          "first_contact": "Was it solved in this single conversation rather than punted to later?"
+        },
+        "served_user": "an existing customer who is blocked and wants their problem solved in this conversation",
+        "failure_modes": [
+          "deflects to a help-center article instead of solving the actual problem",
+          "escalates to a human for something it had the tools to resolve itself",
+          "confirms it \"fixed\" something without actually taking the action"
+        ],
+        "stakes_good": "a resolved ticket the customer never thinks about again - deflected volume, higher CSAT, no human cost",
+        "stakes_bad": "a frustrated customer who re-opens, churns, or posts publicly - plus a human now cleaning it up"
+      },
+      "billing-agent": {
+        "domain": "billing and payments support (charges, refunds, plan changes, payment methods) for a SaaS product",
+        "user_goal": "get the billing issue corrected accurately and completely, with the money outcome they are owed",
+        "success_criteria": [
+          "the correct financial action was taken (refund, credit, plan change) and confirmed back to the customer",
+          "the action matches policy and the customer's actual entitlement - no over- or under-refunding",
+          "the customer leaves understanding what happened to their money and when to expect it"
+        ],
+        "custom_dimensions": {
+          "financially_correct": "Was the right amount refunded/credited/charged - not just something plausible?",
+          "policy_aligned": "Did the action follow refund/billing policy rather than guessing?",
+          "clearly_explained": "Does the customer understand the money outcome and timing?"
+        },
+        "served_user": "a paying customer disputing or trying to change something about money - a charge, refund, or plan",
+        "failure_modes": [
+          "issues a refund or credit for the wrong amount, or to the wrong account",
+          "promises a financial action it cannot actually complete",
+          "resolves the dispute by escalating every time instead of using its billing tools"
+        ],
+        "stakes_good": "a correctly-resolved billing dispute - trust kept, revenue protected, no finance-team cleanup",
+        "stakes_bad": "a wrong-money outcome that costs real dollars, breaks trust, and triggers a chargeback or manual reversal"
+      }
+    }
+  },
+  "agents": [
+    {
+      "key": "billing-agent",
+      "name": "billing-agent"
+    },
+    {
+      "key": "support-agent",
+      "name": "support-agent"
+    }
+  ],
+  "mappings": {
+    "support-agent": {
+      "agent_key": "support-agent",
+      "archetype": "support",
+      "archetype_description": "resolves a user's issue or question (customer support, helpdesk, IT)",
+      "archetype_confidence": 1.0,
+      "dimension_to_primitive": {
+        "self_service": "autonomy",
+        "actually_resolved": "goal_completion",
+        "first_contact": "timeliness"
+      },
+      "criterion_to_primitive": {
+        "the customer's concrete problem was actually resolved, not just acknowledged or sent to an FAQ": "goal_completion",
+        "the resolution happened in-conversation, with no human handoff required": "autonomy",
+        "the customer was not asked to repeat information the agent already had": "efficiency"
+      },
+      "source": "llm"
+    },
+    "billing-agent": {
+      "agent_key": "billing-agent",
+      "archetype": "support",
+      "archetype_description": "resolves a user's issue or question (customer support, helpdesk, IT)",
+      "archetype_confidence": 0.9,
+      "dimension_to_primitive": {
+        "financially_correct": "goal_completion",
+        "policy_aligned": "goal_completion",
+        "clearly_explained": "response_quality"
+      },
+      "criterion_to_primitive": {
+        "the correct financial action was taken (refund, credit, plan change) and confirmed back to the customer": "goal_completion",
+        "the action matches policy and the customer's actual entitlement - no over- or under-refunding": "goal_completion",
+        "the customer leaves understanding what happened to their money and when to expect it": "response_quality"
+      },
+      "source": "llm"
+    }
+  },
+  "ontology": {
+    "archetypes": {
+      "support": "resolves a user's issue or question (customer support, helpdesk, IT)",
+      "sales": "qualifies, books, or advances a deal (SDR, outreach, lead-gen)",
+      "research": "gathers and synthesizes information into an answer or report",
+      "tutor": "teaches or coaches a person toward understanding or a skill",
+      "coding": "writes, reviews, or debugs software",
+      "ops": "executes a back-office task to completion (claims, scheduling, data entry)",
+      "assistant": "general personal or work assistant spanning ad-hoc tasks",
+      "content": "produces creative, marketing, or written artifacts",
+      "unknown": "unclassified"
+    },
+    "primitives": {
+      "goal_completion": "did the user's goal get achieved",
+      "response_quality": "accuracy, clarity, and depth of the responses",
+      "efficiency": "value delivered relative to the user's effort and turns",
+      "autonomy": "finished without handing off to a human",
+      "reliability": "worked without rework or retries",
+      "safety_trust": "no confidently-wrong, harmful, or policy-violating output",
+      "timeliness": "speed to the outcome"
+    }
+  },
+  "blueprint": [
+    {
+      "key": "agent",
+      "label": "Agent",
+      "description": "What this agent is and the world it works in.",
+      "importance": "required",
+      "layout": {
+        "col": 1,
+        "row": 0
+      },
+      "links": [
+        {
+          "to": "user",
+          "relation": "serves"
+        }
+      ],
+      "properties": [
+        {
+          "key": "domain",
+          "label": "Domain",
+          "kind": "text",
+          "help": "The world this agent works in - so value is judged in your language.",
+          "examples": [
+            "B2B SaaS billing support",
+            "Internal IT helpdesk"
+          ]
+        }
+      ],
+      "min_count": 0
+    },
+    {
+      "key": "user",
+      "label": "User",
+      "description": "Who the agent serves and the situation they are in.",
+      "importance": "recommended",
+      "layout": {
+        "col": 0,
+        "row": 1
+      },
+      "links": [
+        {
+          "to": "goal",
+          "relation": "wants"
+        }
+      ],
+      "properties": [
+        {
+          "key": "served_user",
+          "label": "Who is served",
+          "kind": "longtext",
+          "help": "The person on the other end and their situation.",
+          "examples": [
+            "A frustrated customer who was charged twice"
+          ]
+        }
+      ],
+      "min_count": 0
+    },
+    {
+      "key": "goal",
+      "label": "Goal",
+      "description": "The outcome the user wants from a conversation.",
+      "importance": "required",
+      "layout": {
+        "col": 1,
+        "row": 1
+      },
+      "links": [
+        {
+          "to": "success_criteria",
+          "relation": "measured by"
+        },
+        {
+          "to": "value_dimensions",
+          "relation": "measured by"
+        },
+        {
+          "to": "failure_modes",
+          "relation": "threatened by"
+        },
+        {
+          "to": "stakes",
+          "relation": "worth"
+        }
+      ],
+      "properties": [
+        {
+          "key": "user_goal",
+          "label": "What the user is trying to achieve",
+          "kind": "longtext",
+          "help": "Value is judged against this goal, not a generic checklist.",
+          "examples": [
+            "Resolve a billing discrepancy without contacting a human"
+          ]
+        }
+      ],
+      "min_count": 0
+    },
+    {
+      "key": "success_criteria",
+      "label": "Success criteria",
+      "description": "Concrete pass/fail checks that mark a good outcome.",
+      "importance": "required",
+      "layout": {
+        "col": 0,
+        "row": 2
+      },
+      "links": [],
+      "properties": [
+        {
+          "key": "success_criteria",
+          "label": "Success criteria",
+          "kind": "list",
+          "help": "Each is reported met / not met for every conversation.",
+          "examples": [
+            "Refund processed",
+            "No repeat contact within 48h"
+          ]
+        }
+      ],
+      "min_count": 2
+    },
+    {
+      "key": "value_dimensions",
+      "label": "Value dimensions",
+      "description": "Named qualities every conversation is scored on, 0-10.",
+      "importance": "required",
+      "layout": {
+        "col": 1,
+        "row": 2
+      },
+      "links": [],
+      "properties": [
+        {
+          "key": "custom_dimensions",
+          "label": "Custom value dimensions",
+          "kind": "dimensions",
+          "help": "Qualities that matter to you beyond a simple pass/fail.",
+          "examples": [
+            "empathy",
+            "first-contact resolution"
+          ]
+        }
+      ],
+      "min_count": 1
+    },
+    {
+      "key": "failure_modes",
+      "label": "Failure modes",
+      "description": "What going wrong looks like in your domain.",
+      "importance": "recommended",
+      "layout": {
+        "col": 2,
+        "row": 2
+      },
+      "links": [],
+      "properties": [
+        {
+          "key": "failure_modes",
+          "label": "Failure modes",
+          "kind": "list",
+          "help": "The ways this agent loses value - used to spot leaks.",
+          "examples": [
+            "Tells a customer the wrong refund amount",
+            "Escalates avoidably"
+          ]
+        }
+      ],
+      "min_count": 1
+    },
+    {
+      "key": "stakes",
+      "label": "Stakes",
+      "description": "What a good conversation is worth and a bad one costs.",
+      "importance": "recommended",
+      "layout": {
+        "col": 2,
+        "row": 1
+      },
+      "links": [],
+      "properties": [
+        {
+          "key": "stakes_good",
+          "label": "What a good conversation is worth",
+          "kind": "longtext",
+          "help": "The upside - saved cost, retained revenue, time back.",
+          "examples": [
+            "Saves ~15 min of agent time and avoids a churn risk"
+          ]
+        },
+        {
+          "key": "stakes_bad",
+          "label": "What a bad conversation costs",
+          "kind": "longtext",
+          "help": "The downside - escalation cost, lost trust, churn.",
+          "examples": [
+            "A wrong answer can trigger a chargeback and a complaint"
+          ]
+        }
+      ],
+      "min_count": 0
+    }
+  ]
+}

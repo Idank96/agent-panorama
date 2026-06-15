@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import type { AgentMappingView, AgentMeta, BlueprintObject, ValueConfigResponse } from "../types";
+import type { AgentMappingView, AgentMeta, BlueprintObject } from "../types";
 import {
   type EditableConfig,
   type EditableDef,
+  type LoadedValueConfig,
   blankEditableDef,
   fromEditableConfig,
   isDefinedEditable,
@@ -33,7 +34,7 @@ interface ServerMeta {
 }
 
 /**
- * Value Ontology — the value-definition section.
+ * Value Ontology - the value-definition section.
  *
  * A defined agent lands on the read-only {@link ValueBlueprint} (a strategy
  * briefing of how it creates value); the guided {@link ValueWizard} is the one
@@ -44,6 +45,7 @@ export function SettingsView({ agents }: SettingsViewProps) {
   const [draft, setDraft] = useState<EditableConfig | null>(null);
   const [meta, setMeta] = useState<ServerMeta | null>(null);
   const [serverUp, setServerUp] = useState<boolean | null>(null);
+  const [readOnly, setReadOnly] = useState(false);
   const [target, setTarget] = useState<string>(DEFAULT_KEY);
   const [mode, setMode] = useState<Mode>("auto");
   const [status, setStatus] = useState<SaveStatus>("idle");
@@ -53,17 +55,17 @@ export function SettingsView({ agents }: SettingsViewProps) {
   useEffect(() => {
     let active = true;
     const tick = async () => {
-      const res = await loadValueConfig();
+      const loaded = await loadValueConfig();
       if (!active) return;
-      applyServerState(res, { seeded, setServerUp, setMeta, setDraft });
+      applyServerState(loaded, { seeded, setServerUp, setReadOnly, setMeta, setDraft, setTarget });
     };
     tick();
-    const interval = setInterval(tick, POLL_MS);
+    const interval = readOnly ? undefined : setInterval(tick, POLL_MS);
     return () => {
       active = false;
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
-  }, []);
+  }, [readOnly]);
 
   if (serverUp === false) return <ReadOnlyNotice enabled={meta?.enabled ?? false} />;
   if (!draft || !meta) return <Loading />;
@@ -73,8 +75,13 @@ export function SettingsView({ agents }: SettingsViewProps) {
   const mapping = target === DEFAULT_KEY ? null : (meta.mappings[target] ?? null);
   const targetLabel = objects.find((o) => o.key === target)?.label ?? "Agent";
   const wizardName = target === DEFAULT_KEY ? "your agents (fleet default)" : targetLabel;
-  const surface: "intro" | "wizard" | "blueprint" =
-    mode === "auto" ? (isDefinedEditable(def) ? "blueprint" : "intro") : mode;
+  const surface: "intro" | "wizard" | "blueprint" = readOnly
+    ? "blueprint"
+    : mode === "auto"
+      ? isDefinedEditable(def)
+        ? "blueprint"
+        : "intro"
+      : mode;
 
   const selectTarget = (key: string) => {
     setTarget(key);
@@ -111,7 +118,7 @@ export function SettingsView({ agents }: SettingsViewProps) {
           <div className="ap-topbar-title">
             <h1>Value Ontology</h1>
             <span className="ap-topbar-sub">
-              Define how each agent creates value — and how it's measured
+              Define how each agent creates value - and how it's measured
             </span>
           </div>
           {status !== "idle" && (
@@ -150,8 +157,9 @@ export function SettingsView({ agents }: SettingsViewProps) {
               mappings={meta.mappings}
               ontology={meta.ontology}
               agentName={targetLabel}
-              onEdit={() => setMode("wizard")}
-              onNew={createOntology}
+              readOnly={readOnly}
+              onEdit={readOnly ? undefined : () => setMode("wizard")}
+              onNew={readOnly ? undefined : createOntology}
             />
           )}
         </div>
@@ -163,8 +171,8 @@ export function SettingsView({ agents }: SettingsViewProps) {
 const STATUS_LABEL: Record<SaveStatus, string> = {
   idle: "",
   saving: "Saving…",
-  saved: "Saved — re-judging…",
-  error: "Save failed — retry from the wizard",
+  saved: "Saved - re-judging…",
+  error: "Save failed - retry from the wizard",
 };
 
 /** A context key not already taken by another agent. */
@@ -210,20 +218,31 @@ const writeDef = (draft: EditableConfig, target: string, next: EditableDef): Edi
     ? { ...draft, default: next }
     : { ...draft, contexts: { ...draft.contexts, [target]: next } };
 
+/** The first agent with a complete definition, so read-only mode lands on content. */
+function firstDefinedKey(config: EditableConfig): string | null {
+  const ctxKey = Object.keys(config.contexts).find((k) => isDefinedEditable(config.contexts[k]));
+  if (ctxKey) return ctxKey;
+  return isDefinedEditable(config.default) ? DEFAULT_KEY : null;
+}
+
 function applyServerState(
-  res: ValueConfigResponse | null,
+  loaded: LoadedValueConfig | null,
   ctx: {
     seeded: React.MutableRefObject<boolean>;
     setServerUp: (v: boolean) => void;
+    setReadOnly: (v: boolean) => void;
     setMeta: (m: ServerMeta) => void;
     setDraft: (d: EditableConfig) => void;
+    setTarget: (key: string) => void;
   },
 ) {
-  if (!res) {
+  if (!loaded) {
     ctx.setServerUp(false);
     return;
   }
+  const res = loaded.response;
   ctx.setServerUp(true);
+  ctx.setReadOnly(!loaded.live);
   ctx.setMeta({
     enabled: res.enabled,
     agents: res.agents,
@@ -233,7 +252,12 @@ function applyServerState(
   });
   if (!ctx.seeded.current) {
     ctx.seeded.current = true;
-    ctx.setDraft(toEditableConfig(res.config));
+    const editable = toEditableConfig(res.config);
+    ctx.setDraft(editable);
+    if (!loaded.live) {
+      const first = firstDefinedKey(editable);
+      if (first) ctx.setTarget(first);
+    }
   }
 }
 
@@ -269,7 +293,7 @@ function IntroPanel({ name, onStart }: { name: string; onStart: () => void }) {
       <div className="ap-settings-intro-card">
         <h2>Define how value is measured for {name}</h2>
         <p>
-          Answer a few quick questions and we'll build the value map with you — each one
+          Answer a few quick questions and we'll build the value map with you - each one
           tailored to what this agent actually does. Stuck on any of them? Tap{" "}
           <b>Help me figure out</b> for suggestions. You can edit everything afterward.
         </p>

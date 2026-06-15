@@ -92,7 +92,7 @@ function ValueSection({ value }: { value: ValueJudgment }) {
   );
 }
 
-/** Right panel — expanded detail of the selected activity. */
+/** Right panel - expanded detail of the selected activity. */
 export function DetailPanel({
   entry,
   agent,

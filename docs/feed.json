@@ -1,0 +1,864 @@
+{
+  "generated_at": "2026-06-15T05:59:49.946336+00:00",
+  "time_range": {
+    "start": "2026-06-14T10:20:00+00:00",
+    "end": "2026-06-14T16:40:03+00:00"
+  },
+  "totals": {
+    "runs": 12,
+    "steps": 15,
+    "tokens": 29130,
+    "cost_usd": 0.077344,
+    "value": {
+      "judged": 11,
+      "avg_value_score": 6.090909090909091,
+      "valuable_rate": 0.5454545454545454,
+      "cost_per_valuable_usd": 0.012890666666666667
+    }
+  },
+  "feed": [
+    {
+      "run_id": "sup-001",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Fixed a login problem - corrected a typo in the user's email and resent the reset link",
+      "outcome": "success",
+      "timestamp": "2026-06-14T16:40:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 860,
+      "cost_usd": 0.000192,
+      "summary": "The user couldn't log in or receive a reset email. The agent found a typo in their account email, corrected it, and resent the reset link.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "860"
+        ],
+        [
+          "Est. cost",
+          "$0.0002"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 10,
+        "goal_completion": 10,
+        "response_quality": 10,
+        "efficiency": 10,
+        "outcome": "User's login issue resolved by correcting email typo and re-sending password reset link.",
+        "rationale": "The user's goal was to get their specific issue fully resolved without needing a human, and this was achieved in a single turn. The assistant accurately identified the problem (email typo) and provided a direct solution (corrected email, resent link), meeting both success criteria. The response was clear, efficient, and fully resolved the user's stated problem.",
+        "value_delivered": [
+          "Assistant identified the root cause of the login problem: a typo in the user's email address (jon@ instead of john@) in transcript Exchange 1.",
+          "Assistant corrected the email typo and resent the password reset link, directly addressing the user's stated problem in transcript Exchange 1.",
+          "Assistant provided clear instructions to check spam for the reset email in transcript Exchange 1."
+        ],
+        "value_lost": [],
+        "recommended_fixes": [],
+        "custom_scores": {
+          "self_service": 10,
+          "actually_resolved": 10
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": true,
+          "no human escalation was required": true
+        }
+      }
+    },
+    {
+      "run_id": "bil-001",
+      "agent_name": "billing-agent",
+      "agent_key": "billing-agent",
+      "action": "Answered a duplicate-charge refund request by sending the refund policy",
+      "outcome": "success",
+      "timestamp": "2026-06-14T16:05:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 4720,
+      "cost_usd": 0.0157,
+      "summary": "Asked to refund a duplicate $129 charge, the agent shared the refund policy and billing FAQ and said requests are reviewed in 5-7 days - without processing the refund.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "4,720"
+        ],
+        [
+          "Est. cost",
+          "$0.0157"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 1,
+        "goal_completion": 1,
+        "response_quality": 2,
+        "efficiency": 1,
+        "outcome": "The user's duplicate charge was not refunded, and they were instead directed to a refund policy and billing FAQ, with a promise of review within 5-7 business days.",
+        "rationale": "The user's goal was to get their specific issue (a duplicate charge) fully resolved without needing a human, and to receive a refund immediately. The assistant failed to resolve the issue, instead providing policy information and a lengthy review timeframe. The user was not refunded, and the issue was not actually resolved, only acknowledged and deferred. This directly contradicts the success criteria of the issue being resolved and no human escalation being required (as the user is left with an unresolved issue). The custom dimensions 'self_service' and 'actually_resolved' are also scored low because the user did not get their problem fixed and was not able to self-serve a resolution. The efficiency is low because the user spent turns and effort without getting their problem solved.",
+        "value_delivered": [
+          "The assistant acknowledged the user's order number (ORD-5567) in Exchange 1.",
+          "The assistant provided a timeframe for review (5-7 business days) in Exchange 1."
+        ],
+        "value_lost": [
+          "The core issue of the duplicate charge was not resolved; the user was not refunded as requested in Exchange 1.",
+          "The user was deflected to a refund policy and billing FAQ instead of receiving a direct resolution in Exchange 1.",
+          "The assistant did not confirm if the duplicate charge was indeed an error or if it was a valid second charge for a different item/service, which is crucial for resolving the user's stated problem in Exchange 1.",
+          "The user's explicit request to 'Refund the duplicate charge now' was not met in Exchange 1."
+        ],
+        "recommended_fixes": [
+          "The assistant should be trained to directly address and resolve transactional issues like duplicate charges when possible, rather than immediately deferring to policies or FAQs.",
+          "Implement logic to identify and process immediate refunds for confirmed duplicate charges, or at least gather more information to verify the duplicate charge before deferring.",
+          "The assistant should ask clarifying questions to understand *why* the user believes it's a duplicate charge before offering policy information, e.g., 'Can you tell me more about why you believe this is a duplicate charge?'"
+        ],
+        "custom_scores": {
+          "self_service": 0,
+          "actually_resolved": 0
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": false,
+          "no human escalation was required": false
+        }
+      }
+    },
+    {
+      "run_id": "sup-002",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Located delayed order ORD-7781 and added free express to the next order",
+      "outcome": "success",
+      "timestamp": "2026-06-14T15:10:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 1430,
+      "cost_usd": 0.00031800000000000003,
+      "summary": "The agent found ORD-7781 stuck at the carrier hub, confirmed next-day delivery, and applied free 2-day express to the user's next order for the trouble.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "2"
+        ],
+        [
+          "Tokens",
+          "1,430"
+        ],
+        [
+          "Est. cost",
+          "$0.0003"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 10,
+        "goal_completion": 10,
+        "response_quality": 10,
+        "efficiency": 10,
+        "outcome": "The user's order status was provided, and a service credit was applied for the delay.",
+        "rationale": "The assistant fully met the user's goal by providing a clear and immediate resolution to their query about order status and delivery. The response was accurate, empathetic, and proactive in offering compensation, demonstrating exceptional value delivery. The user's specific issue was resolved without needing further interaction or escalation, meeting all success criteria.",
+        "value_delivered": [
+          "The assistant immediately identified the order and provided its status, ORD-7781, stating it was held at the carrier's regional hub due to a missed scan. (Exchange 1)",
+          "The assistant provided a clear resolution for the delivery, stating it is now out for delivery and will arrive by tomorrow, 8 PM. (Exchange 1)",
+          "The assistant proactively offered compensation for the delay by adding free 2-day express shipping to the user's next order, without requiring a code. (Exchange 1)"
+        ],
+        "value_lost": [],
+        "recommended_fixes": [],
+        "custom_scores": {
+          "self_service": 10,
+          "actually_resolved": 10
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": true,
+          "no human escalation was required": true
+        }
+      }
+    },
+    {
+      "run_id": "bil-002",
+      "agent_name": "billing-agent",
+      "agent_key": "billing-agent",
+      "action": "Responded to an invoice-spike question with a generic usage explanation",
+      "outcome": "success",
+      "timestamp": "2026-06-14T14:50:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 5210,
+      "cost_usd": 0.017599999999999998,
+      "summary": "Asked why the invoice rose $312, the agent gave a generic 'usage and taxes' answer and pointed to the billing dashboard without explaining the increase.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "5,210"
+        ],
+        [
+          "Est. cost",
+          "$0.0176"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 1,
+        "goal_completion": 0,
+        "response_quality": 2,
+        "efficiency": 1,
+        "outcome": "The user's invoice amount was not explained, and they were directed to their billing dashboard without resolution.",
+        "rationale": "The assistant failed to resolve the user's core issue, which was a specific $312 increase in their invoice. The response in Exchange 1 was generic and deflected the user to their billing dashboard without providing any concrete explanation or resolution. This directly contradicts the user's goal of getting their issue fully resolved without human intervention and fails the 'actually_resolved' and 'self_service' custom dimensions. The response quality was low because it did not address the specific query, and efficiency was poor as the user's problem was not solved in a single turn.",
+        "value_delivered": [
+          "The assistant acknowledged the user's question about the invoice increase in Exchange 1."
+        ],
+        "value_lost": [
+          "The assistant did not explain the specific reason for the $312 increase, instead providing a generic response about usage and taxes in Exchange 1.",
+          "The assistant deflected the user to the billing dashboard without resolving the core issue in Exchange 1.",
+          "The user's goal of getting their specific issue fully resolved without needing a human was not met, as the core question remained unanswered in Exchange 1."
+        ],
+        "recommended_fixes": [
+          "Implement logic to access and explain specific invoice line items when a user questions a price discrepancy, rather than providing a generic answer.",
+          "If direct access to invoice details is not possible, provide a clear, step-by-step guide on how the user can find the specific information causing the increase in their billing dashboard, and offer to walk them through it.",
+          "Train the model to recognize when a user is asking for a specific explanation versus general information, and to provide the former when possible."
+        ],
+        "custom_scores": {
+          "self_service": 0,
+          "actually_resolved": 0
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": false,
+          "no human escalation was required": false
+        }
+      }
+    },
+    {
+      "run_id": "sup-003",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Showed the user how to export to CSV and started the export for them",
+      "outcome": "success",
+      "timestamp": "2026-06-14T14:25:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 790,
+      "cost_usd": 0.000186,
+      "summary": "The agent explained the CSV export steps and kicked off the export so the download link is already on its way.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "790"
+        ],
+        [
+          "Est. cost",
+          "$0.0002"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 9,
+        "goal_completion": 9,
+        "response_quality": 10,
+        "efficiency": 10,
+        "outcome": "User received instructions on how to export data and the export was initiated for them.",
+        "rationale": "The user's goal of exporting their data was fully met. The assistant provided clear instructions and proactively initiated the export, which is exactly what the user wanted. The interaction was efficient and required no further input from the user. The only reason it's not a perfect 10 is that the user didn't explicitly confirm receipt of the email, but the assistant's action was complete.",
+        "value_delivered": [
+          "Assistant provided clear instructions on how to export data to CSV: 'Go to Settings \u2192 Data \u2192 Export and choose CSV.' (Exchange 1)",
+          "Assistant proactively initiated the data export for the user, saving them time and effort. (Exchange 1)",
+          "Assistant informed the user about the expected delivery time for the export link: 'For an account your size it emails a download link in about 5 minutes.' (Exchange 1)"
+        ],
+        "value_lost": [],
+        "recommended_fixes": [],
+        "custom_scores": {
+          "self_service": 10,
+          "actually_resolved": 10
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": true,
+          "no human escalation was required": true
+        }
+      }
+    },
+    {
+      "run_id": "bil-003",
+      "agent_name": "billing-agent",
+      "agent_key": "billing-agent",
+      "action": "Updated the user's billing card to the one ending 4412",
+      "outcome": "success",
+      "timestamp": "2026-06-14T13:35:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 4230,
+      "cost_usd": 0.0138,
+      "summary": "The agent updated the default payment method to the card ending 4412, verified it, removed the old card, and confirmed the next invoice date.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "4,230"
+        ],
+        [
+          "Est. cost",
+          "$0.0138"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 10,
+        "goal_completion": 10,
+        "response_quality": 10,
+        "efficiency": 9,
+        "outcome": "The user's default payment method was updated to the card ending 4412 and verified.",
+        "rationale": "The user's request to update their billing card was completed and verified in a single turn, with the old card removed and the next invoice date confirmed. The issue was fully resolved without a human.",
+        "value_delivered": [
+          "The assistant updated the default payment method to the card ending 4412 in Exchange 1.",
+          "The assistant verified the card with a $0 authorization in Exchange 1.",
+          "The assistant confirmed the next invoice (Jul 1) will use the new card and removed the old one in Exchange 1."
+        ],
+        "value_lost": [],
+        "recommended_fixes": [],
+        "custom_scores": {
+          "self_service": 10,
+          "actually_resolved": 10
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": true,
+          "no human escalation was required": true
+        }
+      }
+    },
+    {
+      "run_id": "sup-004",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Cancelled the user's Pro subscription effective period end",
+      "outcome": "success",
+      "timestamp": "2026-06-14T13:05:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 680,
+      "cost_usd": 0.0001425,
+      "summary": "The agent cancelled the Pro plan effective at the end of the period, confirmed access until then, and emailed a confirmation.",
+      "facts": [
+        [
+          "Steps",
+          "2"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "680"
+        ],
+        [
+          "Est. cost",
+          "$0.0001"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 10,
+        "goal_completion": 10,
+        "response_quality": 10,
+        "efficiency": 10,
+        "outcome": "The user's Pro subscription was cancelled effective at period end, with confirmation, preventing any further charges.",
+        "rationale": "The user's goal was to cancel and avoid being charged again, and this was fully achieved in a single turn. The assistant cancelled the subscription effective period end, confirmed continued access until then, and emailed a confirmation, meeting both success criteria without human involvement.",
+        "value_delivered": [
+          "The assistant cancelled the Pro subscription effective at the end of the current period (Jul 14) in Exchange 1.",
+          "The assistant confirmed the user will not be charged again and keeps access until period end in Exchange 1.",
+          "The assistant sent an email confirmation of the cancellation in Exchange 1."
+        ],
+        "value_lost": [],
+        "recommended_fixes": [],
+        "custom_scores": {
+          "self_service": 10,
+          "actually_resolved": 10
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": true,
+          "no human escalation was required": true
+        }
+      }
+    },
+    {
+      "run_id": "sup-005",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Replied to a PDF-upload crash report with a generic cache-clear suggestion",
+      "outcome": "success",
+      "timestamp": "2026-06-14T12:30:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 830,
+      "cost_usd": 0.00018299999999999998,
+      "summary": "Facing a reported crash on large PDF uploads, the agent suggested clearing the browser cache rather than addressing the underlying bug.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "830"
+        ],
+        [
+          "Est. cost",
+          "$0.0002"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 0,
+        "goal_completion": 0,
+        "response_quality": 2,
+        "efficiency": 0,
+        "outcome": "User's PDF upload issue was not resolved, and they were left frustrated.",
+        "rationale": "The user came with a specific, critical issue (app crashing with large PDFs) and a clear goal: resolution without human intervention. The assistant's response in Exchange 1 was a generic troubleshooting step that completely missed the mark, failing to address the stated problem. This left the user's issue unresolved and their frustration unaddressed, resulting in zero goal completion and value delivered. The efficiency was also zero as the user's effort was wasted on an irrelevant suggestion. The response quality was poor because it was inaccurate and unhelpful for the specific problem.",
+        "value_delivered": [
+          "Assistant acknowledged the user's frustration and apologized for the issue in Exchange 1."
+        ],
+        "value_lost": [
+          "The assistant provided a generic troubleshooting step (clearing browser cache) that did not address the specific issue of PDF size limits, leading to user frustration and a lack of resolution in Exchange 1.",
+          "The user's core problem of the app crashing with PDFs over 10MB was not solved, failing the 'actually_resolved' custom dimension and the primary success criterion.",
+          "The user's goal of getting their issue fully resolved without needing a human was not met, failing the 'self_service' custom dimension and the primary success criterion."
+        ],
+        "recommended_fixes": [
+          "Implement a system to recognize specific error patterns (e.g., 'crashes every single time I upload a PDF larger than about 10MB') and provide targeted solutions or gather more information.",
+          "Avoid offering generic troubleshooting steps when a specific technical limitation or bug is implied by the user's description.",
+          "Train the model to ask clarifying questions about the PDF size and type, or to check for known issues related to file size limits, rather than immediately suggesting a cache clear."
+        ],
+        "custom_scores": {
+          "self_service": 0,
+          "actually_resolved": 0
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": false,
+          "no human escalation was required": false
+        }
+      }
+    },
+    {
+      "run_id": "bil-004",
+      "agent_name": "billing-agent",
+      "agent_key": "billing-agent",
+      "action": "Cancelled the plan but declined the user's refund request on policy",
+      "outcome": "success",
+      "timestamp": "2026-06-14T12:00:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 4580,
+      "cost_usd": 0.015050000000000001,
+      "summary": "The agent cancelled the plan but denied the requested refund for the unused month by citing non-refundable terms, offering no credit or alternative.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "4,580"
+        ],
+        [
+          "Est. cost",
+          "$0.0151"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 3,
+        "goal_completion": 2,
+        "response_quality": 4,
+        "efficiency": 3,
+        "outcome": "The plan was cancelled, but the user's explicit refund request was denied by citing policy, with no alternative offered.",
+        "rationale": "The user made a two-part request - cancel and refund the unused month. Only the cancellation was honored; the refund was flatly denied by citing non-refundable terms, with no credit or goodwill alternative. Half the stated goal went unmet, and the user is left without the outcome they asked for.",
+        "value_delivered": [
+          "The assistant cancelled the user's plan as part of the request in Exchange 1."
+        ],
+        "value_lost": [
+          "The user's explicit request for a refund of the unused month was denied by citing non-refundable terms in Exchange 1.",
+          "No partial credit or alternative was offered to address the user's underlying concern in Exchange 1."
+        ],
+        "recommended_fixes": [
+          "Offer a partial credit or goodwill option when a refund is policy-blocked, rather than a flat denial.",
+          "Detect multi-part requests and confirm each part is addressed before closing."
+        ],
+        "custom_scores": {
+          "self_service": 4,
+          "actually_resolved": 2
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": false,
+          "no human escalation was required": true
+        }
+      }
+    },
+    {
+      "run_id": "sup-006",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Escalated an account complaint to a senior specialist",
+      "outcome": "human-escalated",
+      "timestamp": "2026-06-14T11:15:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 760,
+      "cost_usd": 0.000159,
+      "summary": "After the user demanded a manager, the agent handed the conversation to a senior specialist with full account history and a 2-hour response window.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "760"
+        ],
+        [
+          "Est. cost",
+          "$0.0002"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 4,
+        "goal_completion": 3,
+        "response_quality": 8,
+        "efficiency": 6,
+        "outcome": "The conversation was escalated to a senior specialist as the user requested; the underlying account issue was not resolved within the conversation.",
+        "rationale": "The user explicitly asked for a manager, and the assistant handled the handoff well, but measured against the goal of resolving the issue without a human, the conversation did not deliver self-service value: the underlying account problem was never diagnosed or fixed, and a human was required.",
+        "value_delivered": [
+          "The assistant acknowledged the user's frustration and escalated with full account history attached, setting a 2-hour response expectation in Exchange 1."
+        ],
+        "value_lost": [
+          "The user's underlying account problem was not diagnosed or resolved within the conversation in Exchange 1.",
+          "A human was required, so the self-service goal was not met in Exchange 1."
+        ],
+        "recommended_fixes": [
+          "Attempt to diagnose the specific account problem before escalating, so a portion of these conversations resolve without a human handoff."
+        ],
+        "custom_scores": {
+          "self_service": 0,
+          "actually_resolved": 2
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": false,
+          "no human escalation was required": false
+        }
+      }
+    },
+    {
+      "run_id": "sup-007",
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "action": "Confirmed the refund for ORD-5567 had been processed",
+      "outcome": "success",
+      "timestamp": "2026-06-14T10:40:00+00:00",
+      "retry_count": 0,
+      "anomaly_count": 0,
+      "tokens": 730,
+      "cost_usd": 0.0001635,
+      "summary": "The agent verified the $129 refund for ORD-5567 was processed on Jun 12, set a 3-5 day expectation, and emailed the receipt.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "0"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "730"
+        ],
+        [
+          "Est. cost",
+          "$0.0002"
+        ]
+      ],
+      "anomalies": [],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": {
+        "overall_score": 9,
+        "goal_completion": 9,
+        "response_quality": 10,
+        "efficiency": 10,
+        "outcome": "The user's refund status for ORD-5567 was confirmed with the processing date and a receipt.",
+        "rationale": "The user wanted to know whether their refund went through, and the assistant gave a precise, verifiable answer in a single turn: the date it processed, the expected arrival window, and a receipt as proof. The issue was fully resolved without a human.",
+        "value_delivered": [
+          "The assistant confirmed the $129 refund for ORD-5567 was processed on Jun 12 in Exchange 1.",
+          "The assistant set a clear expectation of 3-5 business days for the funds to appear in Exchange 1.",
+          "The assistant emailed the receipt as proof in Exchange 1."
+        ],
+        "value_lost": [],
+        "recommended_fixes": [],
+        "custom_scores": {
+          "self_service": 10,
+          "actually_resolved": 9
+        },
+        "criteria_verdicts": {
+          "the customer's specific, stated problem was actually resolved (not just acknowledged or deflected to a policy/FAQ)": true,
+          "no human escalation was required": true
+        }
+      }
+    },
+    {
+      "run_id": "bil-005",
+      "agent_name": "billing-agent",
+      "agent_key": "billing-agent",
+      "action": "Tried to refund ORD-9920 but the payment gateway declined it",
+      "outcome": "failure",
+      "timestamp": "2026-06-14T10:20:00+00:00",
+      "retry_count": 1,
+      "anomaly_count": 1,
+      "tokens": 4310,
+      "cost_usd": 0.01385,
+      "summary": "The agent attempted a refund for the broken-item order ORD-9920, but the payment gateway rejected the transaction.",
+      "facts": [
+        [
+          "Steps",
+          "1"
+        ],
+        [
+          "Retries",
+          "1"
+        ],
+        [
+          "Model calls",
+          "1"
+        ],
+        [
+          "Tokens",
+          "4,310"
+        ],
+        [
+          "Est. cost",
+          "$0.0138"
+        ]
+      ],
+      "anomalies": [
+        "Errors encountered: Payment gateway rejected the refund for ORD-9920 (code: DECLINED)"
+      ],
+      "session_id": null,
+      "actor": null,
+      "turn_count": 1,
+      "run_ids": [],
+      "value": null
+    }
+  ],
+  "rollups": [
+    {
+      "agent_name": "support-agent",
+      "agent_key": "support-agent",
+      "runs": 7,
+      "actions": 9,
+      "success_rate": 0.8571428571428571,
+      "escalation_rate": 0.14285714285714285,
+      "failure_rate": 0.0,
+      "retry_rate": 0.0,
+      "total_tokens": 6080,
+      "total_cost_usd": 0.0013440000000000001,
+      "sessions": 0,
+      "judged": 7,
+      "avg_value_score": 7.428571428571429,
+      "valuable_rate": 0.7142857142857143,
+      "cost_per_valuable_usd": 0.00026880000000000003
+    },
+    {
+      "agent_name": "billing-agent",
+      "agent_key": "billing-agent",
+      "runs": 5,
+      "actions": 4,
+      "success_rate": 0.8,
+      "escalation_rate": 0.0,
+      "failure_rate": 0.2,
+      "retry_rate": 0.2,
+      "total_tokens": 23050,
+      "total_cost_usd": 0.076,
+      "sessions": 0,
+      "judged": 4,
+      "avg_value_score": 3.75,
+      "valuable_rate": 0.25,
+      "cost_per_valuable_usd": 0.076
+    }
+  ],
+  "decision_log": [
+    {
+      "timestamp": "2026-06-14T10:20:04.100000+00:00",
+      "agent_name": "billing-agent",
+      "action": "Processed a refund",
+      "parameters": "order id: ORD-9920, amount usd: 89.0",
+      "outcome": "failed: Payment gateway rejected the refund for ORD-9920 (code: DECLINED)"
+    },
+    {
+      "timestamp": "2026-06-14T11:15:02.100000+00:00",
+      "agent_name": "support-agent",
+      "action": "Handed the conversation to a person",
+      "parameters": "reason: customer requested manager, queue: senior-support",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-06-14T12:00:04.400000+00:00",
+      "agent_name": "billing-agent",
+      "action": "Cancelled the subscription",
+      "parameters": "effective: immediate",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-06-14T13:05:02.100000+00:00",
+      "agent_name": "support-agent",
+      "action": "Cancelled the subscription",
+      "parameters": "plan: pro, effective: period_end",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-06-14T13:35:04.100000+00:00",
+      "agent_name": "billing-agent",
+      "action": "Updated the payment method",
+      "parameters": "last4: 4412",
+      "outcome": "succeeded"
+    },
+    {
+      "timestamp": "2026-06-14T15:10:02.800000+00:00",
+      "agent_name": "support-agent",
+      "action": "Applied an account credit",
+      "parameters": "type: free_express, scope: next_order",
+      "outcome": "succeeded"
+    }
+  ]
+}

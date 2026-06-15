@@ -92,7 +92,7 @@ const DAY = 24 * HOUR;
 
 /** Human relative time ("2m ago"); falls back to the raw ISO string on parse failure. */
 export const relativeTime = (iso: string | null, now: number = Date.now()): string => {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const ts = Date.parse(iso);
   if (Number.isNaN(ts)) return iso;
   const diff = Math.max(0, now - ts);
@@ -104,7 +104,7 @@ export const relativeTime = (iso: string | null, now: number = Date.now()): stri
 
 /** Format a full timestamp for the detail header; falls back to the raw ISO. */
 export const formatFullTime = (iso: string | null): string => {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const ts = Date.parse(iso);
   if (Number.isNaN(ts)) return iso;
   return new Date(ts).toLocaleString(undefined, {
